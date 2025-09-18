@@ -1,0 +1,29 @@
+{
+  "name": "discord-bot-fr",
+  "version": "1.0.0",
+  "description": "Bot Discord en français avec commandes préfixées et slash (discord.js v14)",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "register": "node scripts/register-commands.js"
+  },
+  "keywords": [
+    "discord",
+    "discord.js",
+    "bot",
+    "français",
+    "slash-commands",
+    "prefix-commands"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
