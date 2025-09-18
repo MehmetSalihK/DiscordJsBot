@@ -91,13 +91,13 @@ async function main() {
         
         // Gestion des boutons AutoRole via le gestionnaire dédié
         if (id.startsWith('autorole_')) {
-          const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
+          const { handleAutoRoleInteraction } = await import('./modules/autorole/interactions.js');
           return handleAutoRoleInteraction(interaction);
         }
       } else if (interaction.isStringSelectMenu()) {
         // Gestion des menus de sélection via le gestionnaire dédié
         if (interaction.customId.startsWith('autorole_')) {
-          const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
+          const { handleAutoRoleInteraction } = await import('./modules/autorole/interactions.js');
           return handleAutoRoleInteraction(interaction);
         }
       } else if (interaction.isModalSubmit()) {
@@ -105,7 +105,7 @@ async function main() {
         
         // Gestion des modales AutoRole via le gestionnaire dédié
         if (interaction.customId.startsWith('autorole_')) {
-          const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
+          const { handleAutoRoleInteraction } = await import('./modules/autorole/interactions.js');
           return handleAutoRoleInteraction(interaction);
         }
       }
