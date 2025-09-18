@@ -29,14 +29,25 @@ export async function handleAutoRoleInteraction(interaction) {
   }
 
   const customId = interaction.customId;
+  
+  // Vérifier si l'interaction a déjà été traitée
+  if (interaction.replied || interaction.deferred) {
+    console.warn('Interaction déjà traitée:', interaction.id);
+    return;
+  }
 
   try {
     // Vérifier les permissions
     if (!interaction.member.permissions.has('Administrator')) {
       return interaction.reply({
         embeds: [createErrorEmbed('❌ Permission refusée', 'Vous devez être administrateur pour utiliser cette fonctionnalité.')],
-        ephemeral: true
+        flags: 1 << 6 // EPHEMERAL
       });
+    }
+
+    // Différer la réponse immédiatement pour éviter l'expiration
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ ephemeral: true }).catch(console.error);
     }
 
     // Router vers le bon gestionnaire
@@ -56,10 +67,17 @@ export async function handleAutoRoleInteraction(interaction) {
       'Une erreur inattendue s\'est produite lors du traitement de votre interaction.'
     );
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
-    } else {
-      await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({ embeds: [errorEmbed] });
+      } else {
+        await interaction.reply({ 
+          embeds: [errorEmbed],
+          flags: 1 << 6 // EPHEMERAL
+        });
+      }
+    } catch (replyError) {
+      console.error('Erreur lors de l\'envoi du message d\'erreur:', replyError);
     }
   }
 }
@@ -70,34 +88,70 @@ export async function handleAutoRoleInteraction(interaction) {
  */
 async function handleAutoRoleButtons(interaction) {
   const customId = interaction.customId;
+  
+  // Vérifier si l'interaction a déjà été traitée
+  if (interaction.replied || interaction.deferred) {
+    console.warn('Interaction déjà traitée dans handleAutoRoleButtons:', interaction.id);
+    return;
+  }
 
-  switch (customId) {
-    case 'autorole_toggle':
-      await handleToggleButton(interaction);
-      break;
-    case 'autorole_add':
-      await handleAddButton(interaction);
-      break;
-    case 'autorole_remove':
-      await handleRemoveButton(interaction);
-      break;
-    case 'autorole_logs':
-      await handleLogsButton(interaction);
-      break;
-    case 'autorole_reset':
-      await handleResetButton(interaction);
-      break;
-    case 'autorole_reset_confirm':
-      await handleResetConfirm(interaction);
-      break;
-    case 'autorole_reset_cancel':
-      await handleResetCancel(interaction);
-      break;
-    default:
-      await interaction.reply({
-        embeds: [createErrorEmbed('❌ Erreur', 'Interaction de bouton non reconnue.')],
-        ephemeral: true
-      });
+  try {
+    // Définir un gestionnaire pour le timeout
+    const timeout = setTimeout(async () => {
+      if (!interaction.replied && !interaction.deferred) {
+        try {
+          await interaction.editReply({
+            embeds: [createErrorEmbed('⏱️ Délai dépassé', 'Le temps de traitement de la requête a expiré.')]
+          });
+        } catch (error) {
+          console.error('Erreur lors de l\'envoi du message de timeout:', error);
+        }
+      }
+    }, 5000);
+
+    switch (customId) {
+      case 'autorole_toggle':
+        await handleToggleButton(interaction);
+        break;
+      case 'autorole_add':
+        await handleAddButton(interaction);
+        break;
+      case 'autorole_remove':
+        await handleRemoveButton(interaction);
+        break;
+      case 'autorole_logs':
+        await handleLogsButton(interaction);
+        break;
+      case 'autorole_reset':
+        await handleResetButton(interaction);
+        break;
+      case 'autorole_reset_confirm':
+        await handleResetConfirm(interaction);
+        break;
+      case 'autorole_reset_cancel':
+        await handleResetCancel(interaction);
+        break;
+      default:
+        await interaction.editReply({
+          embeds: [createErrorEmbed('❌ Erreur', 'Interaction de bouton non reconnue.')]
+        });
+    }
+
+    // Nettoyer le timeout
+    clearTimeout(timeout);
+    
+  } catch (error) {
+    console.error('Erreur dans handleAutoRoleButtons:', error);
+    
+    if (!interaction.replied && !interaction.deferred) {
+      try {
+        await interaction.editReply({
+          embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue lors du traitement de votre demande.')]
+        });
+      } catch (replyError) {
+        console.error('Erreur lors de l\'envoi du message d\'erreur:', replyError);
+      }
+    }
   }
 }
 
@@ -208,60 +262,91 @@ async function handleAddButton(interaction) {
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
 
-  await interaction.reply({
-    embeds: [createInfoEmbed('➕ Ajouter un rôle', 'Sélectionnez le rôle à ajouter à l\'AutoRole :')],
-    components: [row],
-    ephemeral: true
-  });
+  // Vérifier si l'interaction a déjà été traitée
+  if (interaction.replied || interaction.deferred) {
+    await interaction.editReply({
+      embeds: [createInfoEmbed('➕ Ajouter un rôle', 'Sélectionnez le rôle à ajouter à l\'AutoRole :')],
+      components: [row]
+    });
+  } else {
+    await interaction.reply({
+      embeds: [createInfoEmbed('➕ Ajouter un rôle', 'Sélectionnez le rôle à ajouter à l\'AutoRole :')],
+      components: [row],
+      ephemeral: true
+    });
+  }
 
   // Créer un collecteur pour le menu de sélection
   const filter = i => i.customId === 'autorole_select_add' && i.user.id === interaction.user.id;
-  const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
+  const collector = interaction.channel.createMessageComponentCollector({ 
+    filter, 
+    time: 30000,
+    max: 1 // Ne traiter qu'une seule sélection
+  });
 
   collector.on('collect', async i => {
-    const roleId = i.values[0];
-    const role = interaction.guild.roles.cache.get(roleId);
-    
-    if (!role) {
-      return i.update({
-        embeds: [createErrorEmbed('❌ Erreur', 'Le rôle sélectionné est introuvable.')],
-        components: []
-      });
-    }
+    try {
+      await i.deferUpdate(); // Différer la réponse immédiatement
+      
+      const roleId = i.values[0];
+      const role = interaction.guild.roles.cache.get(roleId);
+      
+      if (!role) {
+        return interaction.editReply({
+          embeds: [createErrorEmbed('❌ Erreur', 'Le rôle sélectionné est introuvable.')],
+          components: []
+        });
+      }
 
-    const success = addAutoRole(interaction.guild.id, roleId);
-    
-    if (success) {
-      // Log de configuration
-      await sendAutoRoleConfigLog(
-        interaction.guild,
-        interaction.user,
-        'Ajout',
-        `Le rôle ${role.name} (${role.id}) a été ajouté à l'AutoRole.`
-      );
+      const success = addAutoRole(interaction.guild.id, roleId);
       
-      await i.update({
-        embeds: [createSuccessEmbed('✅ Rôle ajouté', `Le rôle ${role} a été ajouté à l'AutoRole avec succès.`)],
-        components: []
-      });
+      if (success) {
+        // Log de configuration
+        await sendAutoRoleConfigLog(
+          interaction.guild,
+          interaction.user,
+          'Ajout',
+          `Le rôle ${role.name} (${role.id}) a été ajouté à l'AutoRole.`
+        );
+        
+        await interaction.editReply({
+          embeds: [createSuccessEmbed('✅ Rôle ajouté', `Le rôle ${role} a été ajouté à l'AutoRole avec succès.`)],
+          components: []
+        });
+        
+        // Mettre à jour le panneau principal si il existe
+        await updatePanel(interaction);
+      } else {
+        await interaction.editReply({
+          embeds: [createWarningEmbed('⚠️ Rôle déjà présent', `Le rôle ${role} est déjà dans la liste AutoRole.`)],
+          components: []
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du traitement de la sélection du rôle:', error);
       
-      // Mettre à jour le panneau principal si il existe
-      await updatePanel(interaction);
-    } else {
-      await i.update({
-        embeds: [createWarningEmbed('⚠️ Rôle déjà présent', `Le rôle ${role} est déjà dans la liste AutoRole.`)],
-        components: []
-      });
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.editReply({
+            embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue lors du traitement de votre sélection.')],
+            components: []
+          });
+        }
+      } catch (replyError) {
+        console.error('Erreur lors de l\'envoi du message d\'erreur:', replyError);
+      }
     }
   });
 
   collector.on('end', async (collected, reason) => {
     if (reason === 'time') {
       try {
-        await interaction.editReply({
-          embeds: [createErrorEmbed('⏱️ Délai expiré', 'Aucun rôle n\'a été sélectionné.')],
-          components: []
-        });
+        if (!interaction.replied) {
+          await interaction.editReply({
+            embeds: [createErrorEmbed('⏱️ Délai expiré', 'Aucun rôle n\'a été sélectionné.')],
+            components: []
+          });
+        }
       } catch (error) {
         console.error('Erreur lors de la mise à jour du message expiré:', error);
       }
@@ -521,127 +606,6 @@ async function handleResetCancel(interaction) {
  */
 async function updatePanel(interaction) {
   try {
-    // Chercher le message du panneau dans les messages récents
-    const messages = await interaction.channel.messages.fetch({ limit: 50 });
-    const panelMessage = messages.find(msg => 
-      msg.author.id === interaction.client.user.id && 
-      msg.embeds.length > 0 && 
-      msg.embeds[0].title?.includes('Panneau de Gestion AutoRole')
-    );
-
-    if (panelMessage) {
-      const config = getGuildAutoRoleConfig(interaction.guild.id);
-      
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle('🎛️ Panneau de Gestion AutoRole')
-        .setDescription(`**Serveur :** ${interaction.guild.name}\n**État :** ${config.active ? '✅ Activé' : '❌ Désactivé'}\n**Rôles configurés :** ${config.roles.length}`)
-        .addFields(
-          {
-            name: '🎯 Rôles AutoRole',
-            value: config.roles.length > 0 
-              ? config.roles.map(roleId => `<@&${roleId}>`).join('\n')
-              : 'Aucun rôle configuré',
-            inline: false
-          },
-          {
-            name: '📝 Canal de logs',
-            value: config.logChannelId ? `<#${config.logChannelId}>` : 'Non configuré',
-            inline: true
-          }
-        )
-        .setFooter({ text: 'Utilisez les boutons ci-dessous pour gérer l\'AutoRole' })
-        .setTimestamp();
-
-      const row1 = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId('autorole_toggle')
-            .setLabel(config.active ? 'Désactiver' : 'Activer')
-            .setStyle(config.active ? ButtonStyle.Danger : ButtonStyle.Success)
-            .setEmoji(config.active ? '❌' : '✅'),
-          new ButtonBuilder()
-            .setCustomId('autorole_add')
-            .setLabel('Ajouter un rôle')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('➕'),
-          new ButtonBuilder()
-            .setCustomId('autorole_remove')
-            .setLabel('Supprimer un rôle')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('➖')
-        );
-
-      const row2 = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId('autorole_logs')
-            .setLabel('Configurer les logs')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('📝'),
-          new ButtonBuilder()
-            .setCustomId('autorole_reset')
-            .setLabel('Réinitialiser')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('🗑️')
-        );
-
-      await panelMessage.edit({ embeds: [embed], components: [row1, row2] });
-    }
-  } catch (error) {
-    console.error('Erreur lors de la mise à jour du panneau:', error);
-  }
-}
-
-/**
- * Crée un embed de succès
- */
-function createSuccessEmbed(title, description) {
-  return new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle(title)
-    .setDescription(description)
-    .setTimestamp();
-}
-
-/**
- * Crée un embed d'erreur
- */
-function createErrorEmbed(title, description) {
-  return new EmbedBuilder()
-    .setColor(0xFF0000)
-    .setTitle(title)
-    .setDescription(description)
-    .setTimestamp();
-}
-
-/**
- * Crée un embed d'avertissement
- */
-function createWarningEmbed(title, description) {
-  return new EmbedBuilder()
-    .setColor(0xFFAA00)
-    .setTitle(title)
-    .setDescription(description)
-    .setTimestamp();
-}
-
-/**
- * Crée un embed d'information
- */
-function createInfoEmbed(title, description) {
-  return new EmbedBuilder()
-    .setColor(0x5865F2)
-    .setTitle(title)
-    .setDescription(description)
-    .setTimestamp();
-}
-
-/**
- * Met à jour le panneau principal AutoRole
- */
-async function updatePanel(interaction) {
-  try {
     const config = getGuildAutoRoleConfig(interaction.guild.id);
     
     const embed = new EmbedBuilder()
@@ -706,4 +670,48 @@ async function updatePanel(interaction) {
   } catch (error) {
     console.error('Erreur lors de la mise à jour du panneau:', error);
   }
+}
+
+/**
+ * Crée un embed de succès
+ */
+function createSuccessEmbed(title, description) {
+  return new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(title)
+    .setDescription(description)
+    .setTimestamp();
+}
+
+/**
+ * Crée un embed d'erreur
+ */
+function createErrorEmbed(title, description) {
+  return new EmbedBuilder()
+    .setColor(0xFF0000)
+    .setTitle(title)
+    .setDescription(description)
+    .setTimestamp();
+}
+
+/**
+ * Crée un embed d'avertissement
+ */
+function createWarningEmbed(title, description) {
+  return new EmbedBuilder()
+    .setColor(0xFFAA00)
+    .setTitle(title)
+    .setDescription(description)
+    .setTimestamp();
+}
+
+/**
+ * Crée un embed d'information
+ */
+function createInfoEmbed(title, description) {
+  return new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle(title)
+    .setDescription(description)
+    .setTimestamp();
 }

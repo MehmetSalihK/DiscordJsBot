@@ -82,33 +82,32 @@ async function main() {
           return;
         }
         await command.execute(interaction, client);
-      } else if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && 
-          interaction.customId && interaction.customId.startsWith('autorole_')) {
-        // Gestion des interactions AutoRole
-        const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
-        await handleAutoRoleInteraction(interaction);
-        return;
       } else if (interaction.isButton()) {
         const id = interaction.customId || '';
         if (id.startsWith('help_')) return handleHelpButton(interaction, client);
         if (id.startsWith('logs_')) return handleLogsButton(interaction, client);
         if (id.startsWith('srv_')) return handleServerInfoButton(interaction, client);
         if (id.startsWith('xp_')) return handleXPButton(interaction, client);
+        
+        // Gestion des boutons AutoRole via le gestionnaire dédié
+        if (id.startsWith('autorole_')) {
+          const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
+          return handleAutoRoleInteraction(interaction);
+        }
       } else if (interaction.isStringSelectMenu()) {
-        // Gestion des anciens menus de sélection (non-AutoRole)
-        if (interaction.customId === 'autorole_select_role' || interaction.customId === 'autorole_remove_role') {
-          const { handleRoleSelection, handleRoleRemoval } = await import('./events/interactionCreate.js');
-          
-          if (interaction.customId === 'autorole_select_role') {
-            await handleRoleSelection(interaction);
-          } else if (interaction.customId === 'autorole_remove_role') {
-            await handleRoleRemoval(interaction);
-          }
-          
-          return;
+        // Gestion des menus de sélection via le gestionnaire dédié
+        if (interaction.customId.startsWith('autorole_')) {
+          const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
+          return handleAutoRoleInteraction(interaction);
         }
       } else if (interaction.isModalSubmit()) {
         if (interaction.customId === 'xp_levels_modal') return handleXPModal(interaction, client);
+        
+        // Gestion des modales AutoRole via le gestionnaire dédié
+        if (interaction.customId.startsWith('autorole_')) {
+          const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
+          return handleAutoRoleInteraction(interaction);
+        }
       }
     } catch (error) {
       logger.error('Erreur lors du traitement d\'une interaction:', error);

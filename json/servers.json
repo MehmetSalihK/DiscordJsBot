@@ -112,6 +112,11 @@
     "logs": {
       "active": true,
       "logChannelId": "1417941892502650912"
+    },
+    "autoRole": {
+      "active": false,
+      "roles": [],
+      "logChannelId": null
     }
   }
 }
