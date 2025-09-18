@@ -4,6 +4,43 @@ import { getGuildAutoRoleConfig, updateGuildAutoRoleConfig } from '../store/auto
 import { createSuccessEmbed, createErrorEmbed, createInfoEmbed } from '../utils/embeds.js';
 import { sendAutoRoleLog } from '../utils/logs.js';
 
+// Fonction utilitaire pour vérifier si une interaction est encore valide
+function isInteractionValid(interaction) {
+  // Vérifier si l'interaction n'a pas expiré (3 secondes pour les interactions de composants)
+  const now = Date.now();
+  const interactionTime = interaction.createdTimestamp;
+  const timeDiff = now - interactionTime;
+  
+  // Les interactions de composants expirent en 3 secondes
+  return timeDiff < 2500; // 2.5 secondes pour être sûr
+}
+
+// Fonction pour gérer les réponses d'interaction de manière sécurisée
+async function safeInteractionResponse(interaction, responseData, isDeferred = false) {
+  try {
+    if (!isInteractionValid(interaction)) {
+      console.log('Interaction expirée, abandon de la réponse');
+      return false;
+    }
+
+    if (interaction.deferred) {
+      await interaction.editReply(responseData);
+    } else if (interaction.replied) {
+      await interaction.followUp({ ...responseData, ephemeral: true });
+    } else {
+      if (interaction.isButton() || interaction.isStringSelectMenu()) {
+        await interaction.update(responseData);
+      } else {
+        await interaction.reply({ ...responseData, ephemeral: true });
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de la réponse sécurisée:', error.message);
+    return false;
+  }
+}
+
 // Fonction pour gérer les interactions de boutons
 export async function handleButtonInteraction(interaction) {
   if (!interaction.isButton()) return false;
@@ -13,11 +50,25 @@ export async function handleButtonInteraction(interaction) {
   // Vérifier si c'est une interaction AutoRole
   if (!customId.startsWith('autorole_')) return false;
   
+  // Vérifier immédiatement si l'interaction est valide
+  if (!isInteractionValid(interaction)) {
+    console.error('Interaction expirée détectée:', interaction.id);
+    return false;
+  }
+  
+  // Différer immédiatement pour éviter l'expiration
+  try {
+    await interaction.deferUpdate();
+  } catch (error) {
+    console.error('Erreur lors du deferUpdate dans handleButtonInteraction:', error);
+    return false;
+  }
+  
   // Vérifier les permissions administrateur
   if (!member.permissions.has('Administrator')) {
-    await interaction.reply({
+    await safeInteractionResponse(interaction, {
       embeds: [createErrorEmbed('Erreur de permission', 'Vous devez être administrateur pour utiliser ces boutons.')],
-      ephemeral: true
+      components: []
     });
     return true;
   }
@@ -45,10 +96,18 @@ export async function handleButtonInteraction(interaction) {
     return true;
   } catch (error) {
     console.error('Error in AutoRole button handler:', error);
-    await interaction.reply({
-      embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors du traitement de votre demande.')],
-      ephemeral: true
-    });
+    
+    // Vérifier si l'interaction n'a pas déjà été traitée
+    if (!interaction.replied && !interaction.deferred) {
+      try {
+        await interaction.update({
+          embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors du traitement de votre demande.')],
+          components: []
+        });
+      } catch (replyError) {
+        console.error('Erreur lors de la réponse d\'erreur:', replyError);
+      }
+    }
     return true;
   }
 }
@@ -63,15 +122,16 @@ async function handleAddRole(interaction) {
     .setMaxValues(1);
   
   // Ajouter les rôles disponibles
-  const roles = interaction.guild.roles.cache
+  const roles = Array.from(interaction.guild.roles.cache
     .sort((a, b) => b.position - a.position)
     .filter(role => !role.managed && role.id !== interaction.guild.id)
+    .values())
     .slice(0, 25); // Limite de 25 rôles dans le menu
   
-  if (roles.size === 0) {
-    return interaction.reply({
+  if (roles.length === 0) {
+    return await safeInteractionResponse(interaction, {
       embeds: [createErrorEmbed('Erreur', 'Aucun rôle disponible à ajouter.')],
-      ephemeral: true
+      components: []
     });
   }
   
@@ -88,10 +148,9 @@ async function handleAddRole(interaction) {
   
   const row = new ActionRowBuilder().addComponents(roleSelect);
   
-  await interaction.reply({
+  await safeInteractionResponse(interaction, {
     content: 'Veuillez sélectionner un rôle à ajouter à l\'AutoRole :',
-    components: [row],
-    ephemeral: true
+    components: [row]
   });
 }
 
@@ -100,9 +159,9 @@ async function handleRemoveRole(interaction) {
   const config = await getGuildAutoRoleConfig(interaction.guildId);
   
   if (config.roles.length === 0) {
-    return interaction.reply({
+    return await safeInteractionResponse(interaction, {
       embeds: [createErrorEmbed('Erreur', 'Aucun rôle configuré pour l\'AutoRole.')],
-      ephemeral: true
+      components: []
     });
   }
   
@@ -130,10 +189,9 @@ async function handleRemoveRole(interaction) {
   
   const row = new ActionRowBuilder().addComponents(roleSelect);
   
-  await interaction.reply({
+  await safeInteractionResponse(interaction, {
     content: 'Sélectionnez un rôle à retirer de l\'AutoRole :',
-    components: [row],
-    ephemeral: true
+    components: [row]
   });
 }
 
@@ -153,11 +211,10 @@ async function handleToggleAutoRole(interaction) {
   );
   
   // Répondre à l'interaction
-  if (interaction.deferred || interaction.replied) {
-    await interaction.editReply({ embeds: [responseEmbed] });
-  } else {
-    await interaction.reply({ embeds: [responseEmbed], ephemeral: true });
-  }
+  await safeInteractionResponse(interaction, { 
+    embeds: [responseEmbed],
+    components: []
+  });
   
   // Envoyer un log
   try {
@@ -171,9 +228,6 @@ async function handleToggleAutoRole(interaction) {
   } catch (logError) {
     console.error('Erreur lors de l\'envoi du log de basculement AutoRole:', logError);
   }
-  
-  // Rafraîchir le panneau
-  await showAutoRolePanel(interaction);
 }
 
 // Fonction pour réinitialiser les rôles AutoRole
@@ -192,11 +246,10 @@ async function handleResetRoles(interaction) {
   );
   
   // Répondre à l'interaction
-  if (interaction.deferred || interaction.replied) {
-    await interaction.editReply({ embeds: [responseEmbed] });
-  } else {
-    await interaction.reply({ embeds: [responseEmbed], ephemeral: true });
-  }
+  await safeInteractionResponse(interaction, { 
+    embeds: [responseEmbed],
+    components: []
+  });
   
   // Envoyer un log si des rôles ont été supprimés
   if (removedRolesCount > 0) {
@@ -212,9 +265,6 @@ async function handleResetRoles(interaction) {
       console.error('Erreur lors de l\'envoi du log de réinitialisation AutoRole:', logError);
     }
   }
-  
-  // Rafraîchir le panneau
-  await showAutoRolePanel(interaction);
 }
 
 // Fonction pour afficher le panneau AutoRole
@@ -305,6 +355,11 @@ async function showAutoRolePanel(interaction) {
       embeds: [embed],
       components: [row]
     });
+  } else if (interaction.isButton()) {
+    await safeInteractionResponse(interaction, {
+      embeds: [embed],
+      components: [row]
+    });
   } else {
     await interaction.reply({
       embeds: [embed],
@@ -347,17 +402,26 @@ export default {
         'Une erreur est survenue lors du traitement de votre demande. Veuillez réessayer plus tard.'
       );
       
-      // Répondre à l'interaction
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({
-          embeds: [errorEmbed],
-          ephemeral: true
-        });
-      } else {
-        await interaction.reply({
-          embeds: [errorEmbed],
-          ephemeral: true
-        });
+      // Répondre à l'interaction seulement si elle n'a pas déjà été traitée
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp({
+            embeds: [errorEmbed],
+            ephemeral: true
+          });
+        } else if (interaction.isButton()) {
+          await interaction.update({
+            embeds: [errorEmbed],
+            components: []
+          });
+        } else {
+          await interaction.reply({
+            embeds: [errorEmbed],
+            ephemeral: true
+          });
+        }
+      } catch (replyError) {
+        console.error('Erreur lors de la réponse d\'erreur dans le gestionnaire principal:', replyError);
       }
       
       // Logger l'erreur complète pour le débogage
@@ -377,25 +441,49 @@ export default {
 
 // Gérer la sélection d'un rôle à ajouter
 async function handleRoleSelection(interaction) {
+  // Vérifier immédiatement si l'interaction est valide
+  if (!isInteractionValid(interaction)) {
+    console.error('Interaction expirée détectée dans handleRoleSelection:', interaction.id);
+    return;
+  }
+  
+  // Différer la réponse immédiatement
+  try {
+    await interaction.deferUpdate();
+  } catch (error) {
+    console.error('Erreur lors du deferUpdate dans handleRoleSelection:', error);
+    return;
+  }
+  
   const { guild, user } = interaction;
   const roleId = interaction.values[0];
   const role = guild.roles.cache.get(roleId);
   
   if (!role) {
-    return interaction.update({
-      content: 'Erreur: Rôle introuvable.',
-      components: []
-    });
+    try {
+      return await interaction.editReply({
+        content: 'Erreur: Rôle introuvable.',
+        components: []
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'interaction (rôle introuvable):', error);
+      return;
+    }
   }
   
   const config = await getGuildAutoRoleConfig(guild.id);
   
   // Vérifier si le rôle est déjà dans la liste
   if (config.roles.includes(roleId)) {
-    return interaction.update({
-      content: `Le rôle ${role} est déjà configuré pour l'AutoRole.`,
-      components: []
-    });
+    try {
+      return await interaction.editReply({
+        content: `Le rôle ${role} est déjà configuré pour l'AutoRole.`,
+        components: []
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'interaction (rôle déjà configuré):', error);
+      return;
+    }
   }
   
   // Ajouter le rôle à la configuration
@@ -404,10 +492,15 @@ async function handleRoleSelection(interaction) {
   });
   
   // Mettre à jour l'interaction
-  await interaction.update({
-    content: `Le rôle ${role} a été ajouté à l'AutoRole avec succès !`,
-    components: []
-  });
+  try {
+    await interaction.editReply({
+      content: `Le rôle ${role} a été ajouté à l'AutoRole avec succès !`,
+      components: []
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de l\'interaction (ajout réussi):', error);
+    return;
+  }
   
   // Envoyer un log
   try {
@@ -421,32 +514,53 @@ async function handleRoleSelection(interaction) {
   } catch (logError) {
     console.error('Erreur lors de l\'envoi du log d\'ajout de rôle AutoRole:', logError);
   }
-  
-  // Rafraîchir le panneau
-  await showAutoRolePanel(interaction);
 }
 
 // Gérer la suppression d'un rôle
 async function handleRoleRemoval(interaction) {
+  // Vérifier immédiatement si l'interaction est valide
+  if (!isInteractionValid(interaction)) {
+    console.error('Interaction expirée détectée dans handleRoleRemoval:', interaction.id);
+    return;
+  }
+  
+  // Différer la réponse immédiatement
+  try {
+    await interaction.deferUpdate();
+  } catch (error) {
+    console.error('Erreur lors du deferUpdate dans handleRoleRemoval:', error);
+    return;
+  }
+  
   const { guild, user } = interaction;
   const roleId = interaction.values[0];
   const role = guild.roles.cache.get(roleId);
   
   if (!role) {
-    return interaction.update({
-      content: 'Erreur: Rôle introuvable.',
-      components: []
-    });
+    try {
+      return await interaction.editReply({
+        content: 'Erreur: Rôle introuvable.',
+        components: []
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'interaction (rôle introuvable - suppression):', error);
+      return;
+    }
   }
   
   const config = await getGuildAutoRoleConfig(guild.id);
   
   // Vérifier si le rôle est dans la liste
   if (!config.roles.includes(roleId)) {
-    return interaction.update({
-      content: `Le rôle ${role} n'est pas configuré pour l'AutoRole.`,
-      components: []
-    });
+    try {
+      return await interaction.editReply({
+        content: `Le rôle ${role} n'est pas configuré pour l'AutoRole.`,
+        components: []
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de l\'interaction (rôle non configuré):', error);
+      return;
+    }
   }
   
   // Supprimer le rôle de la configuration
@@ -455,10 +569,15 @@ async function handleRoleRemoval(interaction) {
   });
   
   // Mettre à jour l'interaction
-  await interaction.update({
-    content: `Le rôle ${role} a été retiré de l'AutoRole avec succès !`,
-    components: []
-  });
+  try {
+    await interaction.editReply({
+      content: `Le rôle ${role} a été retiré de l'AutoRole avec succès !`,
+      components: []
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de l\'interaction (suppression réussie):', error);
+    return;
+  }
   
   // Envoyer un log
   try {
@@ -472,7 +591,7 @@ async function handleRoleRemoval(interaction) {
   } catch (logError) {
     console.error('Erreur lors de l\'envoi du log de suppression de rôle AutoRole:', logError);
   }
-  
-  // Rafraîchir le panneau
-  await showAutoRolePanel(interaction);
 }
+
+// Exports
+export { handleRoleSelection, handleRoleRemoval };

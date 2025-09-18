@@ -45,7 +45,7 @@
     "logChannelId": "1101236533010387177",
     "logsActive": true,
     "autoRole": {
-      "active": false,
+      "active": true,
       "roles": []
     }
   },

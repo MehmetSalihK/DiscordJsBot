@@ -18,8 +18,10 @@ export default {
       }
 
       const count = interaction.options.getInteger('nombre', true);
-      await interaction.channel.bulkDelete(count, true);
-      const emb = createSuccessEmbed('Nettoyage', `**${count}** message(s) supprimé(s) dans <#${interaction.channelId}>.`);
+      const deletedMessages = await interaction.channel.bulkDelete(count, true);
+      const actualCount = deletedMessages.size;
+      
+      const emb = createSuccessEmbed('Nettoyage', `**${actualCount}** message(s) supprimé(s) dans <#${interaction.channelId}>.`);
       await interaction.reply({ embeds: [emb] });
       await sendGuildLog(interaction.client, interaction.guildId, emb);
     } catch (error) {

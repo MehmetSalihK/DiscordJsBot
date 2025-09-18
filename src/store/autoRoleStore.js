@@ -1,283 +1,192 @@
-/**
- * Gestionnaire du stockage pour la configuration AutoRole
- * Gère le chargement et la sauvegarde des paramètres AutoRole pour chaque serveur
- */
-import { readFile, writeFile, mkdir, access } from 'fs/promises';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 import path from 'path';
-import { dirname } from 'path';
-import { autoRoleConfig } from '../config/autoRoleConfig.js';
-import { logger } from '../utils/logger.js';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const CONFIG_DIR = path.join(__dirname, '../../json');
-const CONFIG_PATH = path.join(CONFIG_DIR, 'servers.json');
+const __dirname = path.dirname(__filename);
 
-// Cache pour les configurations chargées
-const configCache = new Map();
-let isConfigLoaded = false;
+const SERVERS_FILE = path.join(__dirname, '../../json/servers.json');
 
 /**
- * Vérifie si le fichier de configuration existe
- * @returns {Promise<boolean>} True si le fichier existe, false sinon
+ * Lit le fichier servers.json
+ * @returns {Object} Les données des serveurs
  */
-async function configFileExists() {
+function readServersData() {
   try {
-    await access(CONFIG_PATH);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * S'assure que le dossier de configuration existe
- * @throws {Error} Si la création du dossier échoue
- */
-async function ensureConfigDir() {
-  try {
-    await mkdir(CONFIG_DIR, { recursive: true });
-  } catch (error) {
-    if (error.code !== 'EEXIST') {
-      const errorMsg = `Échec de la création du dossier de configuration: ${error.message}`;
-      logger.error(errorMsg, { error });
-      throw new Error(errorMsg);
-    }
-  }
-}
-
-/**
- * Charge la configuration depuis le fichier
- * @returns {Promise<Object>} La configuration chargée
- * @throws {Error} Si le chargement échoue
- */
-async function loadConfig() {
-  // Si la configuration est déjà en cache, on la retourne
-  if (isConfigLoaded && configCache.size > 0) {
-    return Object.fromEntries(configCache);
-  }
-
-  try {
-    await ensureConfigDir();
-    
-    // Si le fichier n'existe pas, on le crée avec un objet vide
-    if (!await configFileExists()) {
-      logger.info('Aucun fichier de configuration trouvé, création d\'un nouveau');
-      await writeFile(CONFIG_PATH, JSON.stringify({}, null, 2));
+    if (!fs.existsSync(SERVERS_FILE)) {
+      fs.writeFileSync(SERVERS_FILE, '{}', 'utf8');
       return {};
     }
-    
-    // Lire et parser le fichier de configuration
-    const data = await readFile(CONFIG_PATH, 'utf-8');
-    const config = JSON.parse(data || '{}');
-    
-    // Mettre en cache les configurations
-    Object.entries(config).forEach(([guildId, guildConfig]) => {
-      configCache.set(guildId, guildConfig);
-    });
-    
-    isConfigLoaded = true;
-    return config;
-    
+    const data = fs.readFileSync(SERVERS_FILE, 'utf8');
+    return JSON.parse(data);
   } catch (error) {
-    const errorMsg = `Erreur lors du chargement de la configuration: ${error.message}`;
-    logger.error(errorMsg, { error });
-    throw new Error(errorMsg);
+    console.error('Erreur lors de la lecture du fichier servers.json:', error);
+    return {};
   }
 }
 
 /**
- * Sauvegarde la configuration dans le fichier
- * @param {Object} config - La configuration à sauvegarder
- * @throws {Error} Si la sauvegarde échoue
+ * Écrit dans le fichier servers.json
+ * @param {Object} data - Les données à écrire
  */
-async function saveConfig(config) {
+function writeServersData(data) {
   try {
-    await ensureConfigDir();
-    
-    // Mettre à jour le cache
-    Object.entries(config).forEach(([guildId, guildConfig]) => {
-      configCache.set(guildId, guildConfig);
-    });
-    
-    // Écrire dans le fichier avec une indentation pour une meilleure lisibilité
-    await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2));
-    
+    fs.writeFileSync(SERVERS_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {
-    const errorMsg = `Erreur lors de la sauvegarde de la configuration: ${error.message}`;
-    logger.error(errorMsg, { error });
-    throw new Error(errorMsg);
+    console.error('Erreur lors de l\'écriture du fichier servers.json:', error);
   }
 }
 
 /**
- * Récupère la configuration AutoRole d'un serveur
+ * Obtient la configuration AutoRole d'un serveur
  * @param {string} guildId - L'ID du serveur
- * @returns {Promise<Object>} La configuration AutoRole du serveur
+ * @returns {Object} La configuration AutoRole
  */
-export async function getGuildAutoRoleConfig(guildId) {
-  try {
-    // Charger la configuration si nécessaire
-    const config = await loadConfig();
-    
-    // Si le serveur n'existe pas dans la configuration, on l'initialise avec les valeurs par défaut
-    if (!config[guildId]) {
-      logger.info(`Création d'une nouvelle configuration pour le serveur ${guildId}`);
-      
-      const defaultConfig = {
-        name: 'Nouveau Serveur',
-        prefix: '!',
-        logsActive: true,
-        autoRole: { ...autoRoleConfig.defaultSettings }
-      };
-      
-      config[guildId] = defaultConfig;
-      await saveConfig(config);
-      return defaultConfig.autoRole;
-    }
-    
-    // S'assurer que la configuration AutoRole existe et a la bonne structure
-    if (!config[guildId].autoRole) {
-      logger.info(`Initialisation de la configuration AutoRole pour le serveur ${guildId}`);
-      
-      config[guildId].autoRole = { ...autoRoleConfig.defaultSettings };
-      await saveConfig(config);
-    }
-    
-    // S'assurer que tous les champs requis sont présents
-    const requiredFields = Object.keys(autoRoleConfig.defaultSettings);
-    let needsUpdate = false;
-    
-    for (const field of requiredFields) {
-      if (config[guildId].autoRole[field] === undefined) {
-        config[guildId].autoRole[field] = autoRoleConfig.defaultSettings[field];
-        needsUpdate = true;
+export function getGuildAutoRoleConfig(guildId) {
+  const servers = readServersData();
+  
+  if (!servers[guildId]) {
+    servers[guildId] = {
+      name: "Serveur Inconnu",
+      prefix: "!",
+      logChannelId: null,
+      logsActive: true,
+      autoRole: {
+        active: false,
+        roles: [],
+        logChannelId: null
       }
-    }
-    
-    if (needsUpdate) {
-      logger.info(`Mise à jour de la configuration AutoRole pour le serveur ${guildId}`);
-      await saveConfig(config);
-    }
-    
-    return config[guildId].autoRole;
-    
-  } catch (error) {
-    logger.error(`Erreur lors de la récupération de la configuration AutoRole pour le serveur ${guildId}:`, error);
-    
-    // En cas d'erreur, retourner une configuration par défaut
-    return { ...autoRoleConfig.defaultSettings };
+    };
+    writeServersData(servers);
   }
+  
+  // S'assurer que la structure AutoRole existe
+  if (!servers[guildId].autoRole) {
+    servers[guildId].autoRole = {
+      active: false,
+      roles: [],
+      logChannelId: null
+    };
+    writeServersData(servers);
+  }
+  
+  return servers[guildId].autoRole;
 }
 
 /**
  * Met à jour la configuration AutoRole d'un serveur
  * @param {string} guildId - L'ID du serveur
- * @param {Object} update - Les mises à jour à appliquer
- * @returns {Promise<Object>} La configuration mise à jour
- * @throws {Error} Si la mise à jour échoue
+ * @param {Object} config - La nouvelle configuration
  */
-export async function updateGuildAutoRoleConfig(guildId, update) {
-  if (!guildId) {
-    throw new Error('ID de serveur manquant pour la mise à jour de la configuration AutoRole');
+export function updateGuildAutoRoleConfig(guildId, config) {
+  const servers = readServersData();
+  
+  if (!servers[guildId]) {
+    servers[guildId] = {
+      name: "Serveur Inconnu",
+      prefix: "!",
+      logChannelId: null,
+      logsActive: true,
+      autoRole: {
+        active: false,
+        roles: [],
+        logChannelId: null
+      }
+    };
   }
   
-  try {
-    // Charger la configuration actuelle
-    const config = await loadConfig();
-    
-    // S'assurer que le serveur existe dans la configuration
-    if (!config[guildId]) {
-      logger.info(`Création d'une nouvelle configuration pour le serveur ${guildId} lors d'une mise à jour`);
-      config[guildId] = {
-        name: 'Nouveau Serveur',
-        prefix: '!',
-        logsActive: true,
-        autoRole: { ...autoRoleConfig.defaultSettings }
-      };
-    }
-    
-    // S'assurer que la configuration AutoRole existe
-    if (!config[guildId].autoRole) {
-      config[guildId].autoRole = { ...autoRoleConfig.defaultSettings };
-    }
-    
-    // Appliquer les mises à jour
-    const updatedConfig = {
-      ...config[guildId].autoRole,
-      ...update,
-      // S'assurer que les rôles sont uniques
-      roles: Array.isArray(update.roles) 
-        ? [...new Set(update.roles)] 
-        : config[guildId].autoRole.roles || []
+  if (!servers[guildId].autoRole) {
+    servers[guildId].autoRole = {
+      active: false,
+      roles: [],
+      logChannelId: null
     };
-    
-    // Mettre à jour la configuration
-    config[guildId].autoRole = updatedConfig;
-    
-    // Sauvegarder les modifications
-    await saveConfig(config);
-    
-    logger.info(`Configuration AutoRole mise à jour pour le serveur ${guildId}`);
-    return updatedConfig;
-    
-  } catch (error) {
-    const errorMsg = `Échec de la mise à jour de la configuration AutoRole pour le serveur ${guildId}: ${error.message}`;
-    logger.error(errorMsg, { error });
-    throw new Error(errorMsg);
   }
+  
+  // Mettre à jour la configuration
+  servers[guildId].autoRole = { ...servers[guildId].autoRole, ...config };
+  
+  writeServersData(servers);
+  return servers[guildId].autoRole;
 }
 
 /**
- * Supprime la configuration AutoRole d'un serveur
+ * Ajoute un rôle à la configuration AutoRole
  * @param {string} guildId - L'ID du serveur
- * @returns {Promise<boolean>} True si la suppression a réussi, false sinon
+ * @param {string} roleId - L'ID du rôle à ajouter
+ * @returns {boolean} True si ajouté avec succès
  */
-export async function deleteGuildAutoRoleConfig(guildId) {
-  try {
-    const config = await loadConfig();
-    
-    if (config[guildId]?.autoRole) {
-      delete config[guildId].autoRole;
-      await saveConfig(config);
-      
-      // Mettre à jour le cache
-      if (configCache.has(guildId)) {
-        delete configCache.get(guildId)?.autoRole;
-      }
-      
-      logger.info(`Configuration AutoRole supprimée pour le serveur ${guildId}`);
-      return true;
-    }
-    
-    return false;
-    
-  } catch (error) {
-    logger.error(`Échec de la suppression de la configuration AutoRole pour le serveur ${guildId}:`, error);
-    return false;
+export function addAutoRole(guildId, roleId) {
+  const config = getGuildAutoRoleConfig(guildId);
+  
+  if (!config.roles.includes(roleId)) {
+    config.roles.push(roleId);
+    updateGuildAutoRoleConfig(guildId, config);
+    return true;
   }
+  
+  return false;
 }
 
 /**
- * Récupère la configuration AutoRole de tous les serveurs
- * @returns {Promise<Object>} Un objet avec les IDs des serveurs comme clés et les configurations comme valeurs
+ * Supprime un rôle de la configuration AutoRole
+ * @param {string} guildId - L'ID du serveur
+ * @param {string} roleId - L'ID du rôle à supprimer
+ * @returns {boolean} True si supprimé avec succès
  */
-export async function getAllAutoRoleConfigs() {
-  try {
-    const config = await loadConfig();
-    const result = {};
-    
-    for (const [guildId, guildConfig] of Object.entries(config)) {
-      if (guildConfig.autoRole) {
-        result[guildId] = guildConfig.autoRole;
-      }
-    }
-    
-    return result;
-    
-  } catch (error) {
-    logger.error('Échec de la récupération de toutes les configurations AutoRole:', error);
-    return {};
+export function removeAutoRole(guildId, roleId) {
+  const config = getGuildAutoRoleConfig(guildId);
+  
+  const index = config.roles.indexOf(roleId);
+  if (index > -1) {
+    config.roles.splice(index, 1);
+    updateGuildAutoRoleConfig(guildId, config);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Active ou désactive l'AutoRole
+ * @param {string} guildId - L'ID du serveur
+ * @param {boolean} active - État d'activation
+ */
+export function setAutoRoleActive(guildId, active) {
+  updateGuildAutoRoleConfig(guildId, { active });
+}
+
+/**
+ * Définit le canal de logs AutoRole
+ * @param {string} guildId - L'ID du serveur
+ * @param {string} channelId - L'ID du canal
+ */
+export function setAutoRoleLogChannel(guildId, channelId) {
+  updateGuildAutoRoleConfig(guildId, { logChannelId: channelId });
+}
+
+/**
+ * Réinitialise la configuration AutoRole
+ * @param {string} guildId - L'ID du serveur
+ */
+export function resetAutoRoleConfig(guildId) {
+  updateGuildAutoRoleConfig(guildId, {
+    active: false,
+    roles: [],
+    logChannelId: null
+  });
+}
+
+/**
+ * Met à jour le nom du serveur
+ * @param {string} guildId - L'ID du serveur
+ * @param {string} guildName - Le nom du serveur
+ */
+export function updateGuildName(guildId, guildName) {
+  const servers = readServersData();
+  
+  if (servers[guildId]) {
+    servers[guildId].name = guildName;
+    writeServersData(servers);
   }
 }

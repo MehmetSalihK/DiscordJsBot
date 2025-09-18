@@ -82,22 +82,20 @@ async function main() {
           return;
         }
         await command.execute(interaction, client);
+      } else if ((interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) && 
+          interaction.customId && interaction.customId.startsWith('autorole_')) {
+        // Gestion des interactions AutoRole
+        const { handleAutoRoleInteraction } = await import('./interactions/autoRoleInteractions.js');
+        await handleAutoRoleInteraction(interaction);
+        return;
       } else if (interaction.isButton()) {
         const id = interaction.customId || '';
         if (id.startsWith('help_')) return handleHelpButton(interaction, client);
         if (id.startsWith('logs_')) return handleLogsButton(interaction, client);
         if (id.startsWith('srv_')) return handleServerInfoButton(interaction, client);
         if (id.startsWith('xp_')) return handleXPButton(interaction, client);
-        
-        // Gestion des boutons AutoRole
-        if (id.startsWith('autorole_')) {
-          const action = id.split('_')[1];
-          const { handleButtonInteraction } = await import('./events/interactionCreate.js');
-          await handleButtonInteraction(interaction);
-          return;
-        }
       } else if (interaction.isStringSelectMenu()) {
-        // Gestion des menus de sélection AutoRole
+        // Gestion des anciens menus de sélection (non-AutoRole)
         if (interaction.customId === 'autorole_select_role' || interaction.customId === 'autorole_remove_role') {
           const { handleRoleSelection, handleRoleRemoval } = await import('./events/interactionCreate.js');
           

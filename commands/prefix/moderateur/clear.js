@@ -19,9 +19,13 @@ export default {
       const count = parseInt(args[0], 10);
       if (isNaN(count) || count < 1 || count > 100) return message.reply({ embeds: [createErrorEmbed('Utilisation', `Utilisation: ${this.usage}`)] });
 
-      await message.channel.bulkDelete(count, true);
-      const emb = createSuccessEmbed('Nettoyage', `**${count}** message(s) supprimé(s) dans <#${message.channel.id}>.`);
-      const sent = await message.reply({ embeds: [emb] });
+      // Supprimer les messages
+      const deletedMessages = await message.channel.bulkDelete(count, true);
+      const actualCount = deletedMessages.size;
+      
+      // Utiliser channel.send au lieu de message.reply car le message original pourrait avoir été supprimé
+      const emb = createSuccessEmbed('Nettoyage', `**${actualCount}** message(s) supprimé(s) dans <#${message.channel.id}>.`);
+      const sent = await message.channel.send({ embeds: [emb] });
       setTimeout(() => sent.delete().catch(() => {}), 4000);
       await sendGuildLog(message.client, message.guild.id, emb);
     } catch (error) {
