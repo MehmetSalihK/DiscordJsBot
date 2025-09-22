@@ -1,6 +1,8 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 import { createInfoEmbed, createSuccessEmbed, createErrorEmbed, Emojis } from '../utils/embeds.js';
 import { getPrefix, setLogChannelId, toggleFeature, getGuildConfig, setGuildConfig } from '../store/configStore.js';
+import fs from 'fs';
+import path from 'path';
 
 function buildHelpEmbed(client, guildId, page = 0, catPage = 0) {
   const categories = ['admin', 'moderateur', 'utilisateur', 'xp'];
@@ -408,4 +410,357 @@ export async function handleServerInfoButton(interaction, client) {
 
 export async function buildServerInfoInitial(guild) {
   return buildServerInfoData(guild, 'general', 0);
+}
+
+// ============ Reaction Roles Panel ============
+
+export function buildReactionRolesPanel(guild) {
+  const configPath = path.join(process.cwd(), 'data', 'reactionroles.json');
+  let config = [];
+  
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf8');
+      config = JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la lecture de la configuration des reaction roles:', error);
+  }
+
+  const guildConfig = config.filter(rule => rule.guildId === guild.id);
+  const totalRules = guildConfig.length;
+  
+  const embed = createInfoEmbed(
+    '⚡ Panel de gestion des Reaction Roles',
+    `**Serveur:** ${guild.name}\n**Règles actives:** ${totalRules}\n\nUtilisez les boutons ci-dessous pour gérer vos reaction roles.`
+  );
+
+  const addButton = new ButtonBuilder()
+    .setCustomId('rr_add_rule')
+    .setLabel('Ajouter une règle')
+    .setEmoji('➕')
+    .setStyle(ButtonStyle.Success);
+
+  const listButton = new ButtonBuilder()
+    .setCustomId('rr_list_rules')
+    .setLabel('Lister les règles')
+    .setEmoji('📋')
+    .setStyle(ButtonStyle.Primary);
+
+  const logsButton = new ButtonBuilder()
+    .setCustomId('rr_toggle_logs')
+    .setLabel('Basculer les logs')
+    .setEmoji('📝')
+    .setStyle(ButtonStyle.Secondary);
+
+  const removeButton = new ButtonBuilder()
+    .setCustomId('rr_remove_rule')
+    .setLabel('Supprimer une règle')
+    .setEmoji('🗑️')
+    .setStyle(ButtonStyle.Danger);
+
+  const row = new ActionRowBuilder().addComponents(addButton, listButton, logsButton, removeButton);
+  
+  return { embed, components: [row] };
+}
+
+export async function handleReactionRoleButton(interaction, client) {
+  // Vérification des permissions administrateur
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return interaction.reply({
+      content: '❌ Vous devez être administrateur pour utiliser ce panel.',
+      ephemeral: true
+    });
+  }
+
+  const customId = interaction.customId;
+  const configPath = path.join(process.cwd(), 'data', 'reactionroles.json');
+  
+  let config = [];
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf8');
+      config = JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la lecture de la configuration:', error);
+  }
+
+  switch (customId) {
+    case 'rr_add_rule':
+      const addModal = new ModalBuilder()
+        .setCustomId('rr_add_modal')
+        .setTitle('Ajouter une règle de reaction role');
+
+      const messageIdInput = new TextInputBuilder()
+        .setCustomId('rr_message_id')
+        .setLabel('ID du message')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('123456789012345678');
+
+      const emojiInput = new TextInputBuilder()
+        .setCustomId('rr_emoji')
+        .setLabel('Emoji')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('🎉 ou <:nom:123456789012345678>');
+
+      const roleIdInput = new TextInputBuilder()
+        .setCustomId('rr_role_id')
+        .setLabel('ID du rôle')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('123456789012345678');
+
+      const descriptionInput = new TextInputBuilder()
+        .setCustomId('rr_description')
+        .setLabel('Description (optionnel)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setPlaceholder('Description de cette règle');
+
+      const firstRow = new ActionRowBuilder().addComponents(messageIdInput);
+      const secondRow = new ActionRowBuilder().addComponents(emojiInput);
+      const thirdRow = new ActionRowBuilder().addComponents(roleIdInput);
+      const fourthRow = new ActionRowBuilder().addComponents(descriptionInput);
+
+      addModal.addComponents(firstRow, secondRow, thirdRow, fourthRow);
+      await interaction.showModal(addModal);
+      break;
+
+    case 'rr_list_rules':
+      const guildRules = config.filter(rule => rule.guildId === interaction.guild.id);
+      
+      if (guildRules.length === 0) {
+        const embed = createInfoEmbed('📋 Liste des règles', 'Aucune règle de reaction role configurée pour ce serveur.');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        return;
+      }
+
+      const rulesList = guildRules.map((rule, index) => {
+        const role = interaction.guild.roles.cache.get(rule.roleId);
+        const roleName = role ? role.name : 'Rôle introuvable';
+        return `**${index + 1}.** ${rule.emoji} → ${roleName}\n   Message: ${rule.messageId}\n   ${rule.description || 'Pas de description'}`;
+      }).join('\n\n');
+
+      const listEmbed = createInfoEmbed('📋 Liste des règles de reaction roles', rulesList);
+      await interaction.reply({ embeds: [listEmbed], ephemeral: true });
+      break;
+
+    case 'rr_toggle_logs':
+      const guildConfig = getGuildConfig(interaction.guild.id) || {};
+      const currentLogsState = guildConfig.reactionRoles?.logs !== false;
+      
+      if (!guildConfig.reactionRoles) {
+        guildConfig.reactionRoles = {};
+      }
+      guildConfig.reactionRoles.logs = !currentLogsState;
+      
+      setGuildConfig(interaction.guild.id, guildConfig);
+      
+      const logsEmbed = createSuccessEmbed(
+        '📝 Logs des reaction roles',
+        `Les logs ont été **${!currentLogsState ? 'activés' : 'désactivés'}** pour ce serveur.`
+      );
+      await interaction.reply({ embeds: [logsEmbed], ephemeral: true });
+      break;
+
+    case 'rr_remove_rule':
+      const removeModal = new ModalBuilder()
+        .setCustomId('rr_remove_modal')
+        .setTitle('Supprimer une règle de reaction role');
+
+      const removeMessageIdInput = new TextInputBuilder()
+        .setCustomId('rr_remove_message_id')
+        .setLabel('ID du message')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('123456789012345678');
+
+      const removeEmojiInput = new TextInputBuilder()
+        .setCustomId('rr_remove_emoji')
+        .setLabel('Emoji')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('🎉 ou <:nom:123456789012345678>');
+
+      const removeFirstRow = new ActionRowBuilder().addComponents(removeMessageIdInput);
+      const removeSecondRow = new ActionRowBuilder().addComponents(removeEmojiInput);
+
+      removeModal.addComponents(removeFirstRow, removeSecondRow);
+      await interaction.showModal(removeModal);
+      break;
+  }
+}
+
+export async function handleReactionRoleModal(interaction, client) {
+  // Vérification des permissions administrateur
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return interaction.reply({
+      content: '❌ Vous devez être administrateur pour utiliser cette fonctionnalité.',
+      ephemeral: true
+    });
+  }
+
+  const customId = interaction.customId;
+  const configPath = path.join(process.cwd(), 'data', 'reactionroles.json');
+  
+  let config = [];
+  try {
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf8');
+      config = JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la lecture de la configuration:', error);
+  }
+
+  switch (customId) {
+    case 'rr_add_modal':
+      const messageId = interaction.fields.getTextInputValue('rr_message_id');
+      const emoji = interaction.fields.getTextInputValue('rr_emoji');
+      const roleId = interaction.fields.getTextInputValue('rr_role_id');
+      const description = interaction.fields.getTextInputValue('rr_description') || '';
+
+      // Vérifications
+      const guild = interaction.guild;
+      const role = guild.roles.cache.get(roleId);
+      
+      if (!role) {
+        const embed = createErrorEmbed('❌ Erreur', 'Le rôle spécifié est introuvable.');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        return;
+      }
+
+      // Vérifier si le message existe
+      try {
+        const channel = interaction.channel;
+        const message = await channel.messages.fetch(messageId);
+        
+        // Ajouter la réaction au message
+        await message.react(emoji);
+      } catch (error) {
+        const embed = createErrorEmbed('❌ Erreur', 'Impossible de trouver le message ou d\'ajouter la réaction.');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        return;
+      }
+
+      // Vérifier si la règle existe déjà
+      const existingRule = config.find(rule => 
+        rule.guildId === guild.id && 
+        rule.messageId === messageId && 
+        rule.emoji === emoji
+      );
+
+      if (existingRule) {
+        const embed = createErrorEmbed('❌ Erreur', 'Une règle avec ce message et cet emoji existe déjà.');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        return;
+      }
+
+      // Ajouter la nouvelle règle
+      const newRule = {
+        guildId: guild.id,
+        messageId: messageId,
+        emoji: emoji,
+        roleId: roleId,
+        description: description,
+        createdAt: new Date().toISOString(),
+        createdBy: interaction.user.id
+      };
+
+      config.push(newRule);
+
+      // Sauvegarder la configuration
+      try {
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        
+        const embed = createSuccessEmbed(
+          '✅ Règle ajoutée',
+          `La règle de reaction role a été ajoutée avec succès !\n\n**Message:** ${messageId}\n**Emoji:** ${emoji}\n**Rôle:** ${role.name}\n**Description:** ${description || 'Aucune'}`
+        );
+        
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+
+        // Log de l'action
+        const guildConfig = getGuildConfig(guild.id) || {};
+        if (guildConfig.reactionRoles?.logs !== false) {
+          const logEmbed = createInfoEmbed(
+            '📝 Reaction Role - Règle ajoutée',
+            `**Utilisateur:** ${interaction.user}\n**Message:** ${messageId}\n**Emoji:** ${emoji}\n**Rôle:** ${role}\n**Description:** ${description || 'Aucune'}`
+          );
+          
+          const logChannelId = guildConfig.logChannelId;
+          if (logChannelId) {
+            const logChannel = guild.channels.cache.get(logChannelId);
+            if (logChannel) {
+              await logChannel.send({ embeds: [logEmbed] });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde:', error);
+        const embed = createErrorEmbed('❌ Erreur', 'Impossible de sauvegarder la configuration.');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+      break;
+
+    case 'rr_remove_modal':
+      const removeMessageId = interaction.fields.getTextInputValue('rr_remove_message_id');
+      const removeEmoji = interaction.fields.getTextInputValue('rr_remove_emoji');
+
+      // Trouver la règle à supprimer
+      const ruleIndex = config.findIndex(rule => 
+        rule.guildId === interaction.guild.id && 
+        rule.messageId === removeMessageId && 
+        rule.emoji === removeEmoji
+      );
+
+      if (ruleIndex === -1) {
+        const embed = createErrorEmbed('❌ Erreur', 'Aucune règle trouvée avec ce message et cet emoji.');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        return;
+      }
+
+      const removedRule = config[ruleIndex];
+      const removedRole = interaction.guild.roles.cache.get(removedRule.roleId);
+
+      // Supprimer la règle
+      config.splice(ruleIndex, 1);
+
+      // Sauvegarder la configuration
+      try {
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        
+        const embed = createSuccessEmbed(
+          '✅ Règle supprimée',
+          `La règle de reaction role a été supprimée avec succès !\n\n**Message:** ${removeMessageId}\n**Emoji:** ${removeEmoji}\n**Rôle:** ${removedRole ? removedRole.name : 'Rôle introuvable'}`
+        );
+        
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+
+        // Log de l'action
+        const guildConfig = getGuildConfig(interaction.guild.id) || {};
+        if (guildConfig.reactionRoles?.logs !== false) {
+          const logEmbed = createInfoEmbed(
+            '📝 Reaction Role - Règle supprimée',
+            `**Utilisateur:** ${interaction.user}\n**Message:** ${removeMessageId}\n**Emoji:** ${removeEmoji}\n**Rôle:** ${removedRole || 'Rôle introuvable'}`
+          );
+          
+          const logChannelId = guildConfig.logChannelId;
+          if (logChannelId) {
+            const logChannel = interaction.guild.channels.cache.get(logChannelId);
+            if (logChannel) {
+              await logChannel.send({ embeds: [logEmbed] });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde:', error);
+        const embed = createErrorEmbed('❌ Erreur', 'Impossible de sauvegarder la configuration.');
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+      break;
+  }
 }

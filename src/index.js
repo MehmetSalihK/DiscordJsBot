@@ -9,6 +9,7 @@ import { getPrefix, setGuildConfig } from './store/configStore.js';
 import { handleHelpButton, handleLogsButton, handleServerInfoButton, handleXPButton, handleXPModal } from './handlers/buttonHandlers.js';
 import QueueManager from '../music/queueManager.js';
 import { MusicButtonHandler } from '../music/buttonHandler.js';
+import reactionRolesConfig from '../data/reactionroles.json' with { type: "json" };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,8 +30,9 @@ async function main() {
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
       GatewayIntentBits.GuildVoiceStates,
+      GatewayIntentBits.GuildMessageReactions,
     ],
-    partials: [Partials.Channel],
+    partials: [Partials.Channel, Partials.Message, Partials.Reaction],
   });
 
   // Handlers XP (messages et vocal)
@@ -113,6 +115,67 @@ async function main() {
     logger.error('Erreur lors du chargement des commandes:', error);
     process.exit(1);
   }
+
+  // Gestion des réactions pour les rôles
+  client.on(Events.MessageReactionAdd, async (reaction, user) => {
+    if (user.bot) return;
+    
+    // Vérifier si la réaction partielle doit être récupérée
+    if (reaction.partial) {
+      try {
+        await reaction.fetch();
+      } catch (error) {
+        logger.error('Erreur lors de la récupération de la réaction:', error);
+        return;
+      }
+    }
+
+    const reactionRule = reactionRolesConfig.find(rule => rule.id_message === reaction.message.id);
+    if (!reactionRule) return;
+
+    const guild = reaction.message.guild;
+    const member = await guild.members.fetch(user.id);
+
+    const roleMapping = reactionRule.reactions.find(r => r.id_emoji === reaction.emoji.id);
+    if (!roleMapping) return;
+
+    try {
+      await member.roles.add(roleMapping.id_role);
+      logger.info(`✅ Rôle ajouté à ${user.tag}`);
+    } catch (error) {
+      logger.error('❌ Impossible d\'ajouter le rôle:', error);
+    }
+  });
+
+  client.on(Events.MessageReactionRemove, async (reaction, user) => {
+    if (user.bot) return;
+    
+    // Vérifier si la réaction partielle doit être récupérée
+    if (reaction.partial) {
+      try {
+        await reaction.fetch();
+      } catch (error) {
+        logger.error('Erreur lors de la récupération de la réaction:', error);
+        return;
+      }
+    }
+
+    const reactionRule = reactionRolesConfig.find(rule => rule.id_message === reaction.message.id);
+    if (!reactionRule) return;
+
+    const guild = reaction.message.guild;
+    const member = await guild.members.fetch(user.id);
+
+    const roleMapping = reactionRule.reactions.find(r => r.id_emoji === reaction.emoji.id);
+    if (!roleMapping) return;
+
+    try {
+      await member.roles.remove(roleMapping.id_role);
+      logger.info(`❌ Rôle retiré à ${user.tag}`);
+    } catch (error) {
+      logger.error('❌ Impossible de retirer le rôle:', error);
+    }
+  });
 
   // Connexion
   try {

@@ -54,6 +54,12 @@ export default {
                     return;
                 }
                 
+                // Gestion des boutons Reaction Roles
+                if (id.startsWith('rr_')) {
+                    const { handleReactionRoleButton } = await import('../handlers/buttonHandlers.js');
+                    return handleReactionRoleButton(interaction, client);
+                }
+                
                 // Anciens boutons (compatibilité)
                 switch (interaction.customId) {
                     case 'help_button':
@@ -92,6 +98,12 @@ export default {
                 if (interaction.customId.startsWith('autorole_')) {
                     const { handleAutoRoleInteraction } = await import('../modules/autorole/interactions.js');
                     return handleAutoRoleInteraction(interaction);
+                }
+                
+                // Gestion des modales Reaction Roles
+                if (interaction.customId.startsWith('rr_')) {
+                    const { handleReactionRoleModal } = await import('../handlers/buttonHandlers.js');
+                    return handleReactionRoleModal(interaction, client);
                 }
                 
                 // Ancien modal (compatibilité)
