@@ -12,6 +12,71 @@ export const Emojis = {
   server: '🏰',
   role: '🏷️',
   log: '📝',
+  
+  // Emojis pour UserInfo
+  profile: '👤',
+  calendar: '📅',
+  birthday: '🎂',
+  join: '📥',
+  roles: '🎭',
+  permissions: '🛡️',
+  crown: '👑',
+  moderator: '🛡️',
+  member: '👤',
+  status: '📶',
+  activity: '🎮',
+  phone: '📱',
+  
+  // Emojis pour XP
+  star: '⭐',
+  trophy: '🏆',
+  medal: '🏅',
+  progress: '📊',
+  sparkles: '✨',
+  target: '🎯',
+  chart: '📈',
+  voice: '🎤',
+  time: '⏰',
+  fire: '🔥',
+  gem: '💎',
+  seedling: '🌱',
+  
+  // Emojis pour Social
+  globe: '🌐',
+  link: '🔗',
+  twitter: '🐦',
+  instagram: '📸',
+  twitch: '🎮',
+  github: '🐙',
+  linkedin: '💼',
+  tiktok: '🎵',
+  settings: '⚙️',
+  wrench: '🔧',
+  trash: '🗑️',
+  eye: '👁️',
+  
+  // Badges et statuts
+  legend: '👑',
+  expert: '💎',
+  veteran: '🏆',
+  active: '⭐',
+  beginner: '🌱',
+  online: '🟢',
+  offline: '🔴',
+  checkmark: '✅',
+  cross: '❌',
+  
+  // Autres
+  search: '🔍',
+  clipboard: '📋',
+  folder: '📁',
+  lock: '🔒',
+  unlock: '🔓',
+  bell: '🔔',
+  heart: '❤️',
+  diamond: '💎',
+  money: '💰',
+  gift: '🎁'
 };
 
 export function createInfoEmbed(title, description, extra = {}) {

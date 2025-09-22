@@ -10,6 +10,21 @@ import fs from 'fs';
 import path from 'path';
 import ffmpegStatic from 'ffmpeg-static';
 
+// Supprimer les erreurs YouTube.js encombrants
+const originalConsoleError = console.error;
+console.error = (...args) => {
+    const message = args.join(' ');
+    // Ignorer les erreurs spécifiques de YouTube.js
+    if (message.includes('GridShelfView') || 
+        message.includes('SectionHeaderView') || 
+        message.includes('youtubei.js') ||
+        message.includes('Failed to find class') ||
+        message.includes('Unknown class')) {
+        return; // Ne pas afficher ces erreurs
+    }
+    originalConsoleError.apply(console, args);
+};
+
 class QueueManager {
     constructor(client) {
         this.client = client;

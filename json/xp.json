@@ -13,15 +13,15 @@
       "voiceTime": 0
     },
     "769638536701411379": {
-      "xp": 2,
+      "xp": 10,
       "level": 0,
-      "lastMessage": 1758291158,
+      "lastMessage": 1758533183,
       "voiceTime": 0
     },
     "487253607398375424": {
-      "xp": 6,
+      "xp": 130,
       "level": 0,
-      "lastMessage": 1758529675,
+      "lastMessage": 1758560288,
       "voiceTime": 0
     }
   },
@@ -30,6 +30,14 @@
       "xp": 71,
       "level": 0,
       "lastMessage": 1758290714,
+      "voiceTime": 0
+    }
+  },
+  "1417941891172925483": {
+    "487253607398375424": {
+      "xp": 16,
+      "level": 0,
+      "lastMessage": 1758549660,
       "voiceTime": 0
     }
   }

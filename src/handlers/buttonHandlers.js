@@ -1,36 +1,61 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, MessageFlags, EmbedBuilder } from 'discord.js';
 import { createInfoEmbed, createSuccessEmbed, createErrorEmbed, Emojis } from '../utils/embeds.js';
 import { getPrefix, setLogChannelId, toggleFeature, getGuildConfig, setGuildConfig } from '../store/configStore.js';
+import reactionRoleStore from '../store/reactionRoleStore.js';
+import reactionRoleLogger from '../utils/reactionRoleLogger.js';
 import fs from 'fs';
 import path from 'path';
 
-function buildHelpEmbed(client, guildId, page = 0, catPage = 0) {
-  const categories = ['admin', 'moderateur', 'utilisateur', 'xp'];
-  const titles = ['Commandes Administrateur', 'Commandes Modérateur', 'Commandes Utilisateur', 'Commandes XP'];
-  const emojiTitle = [Emojis.admin, Emojis.mod, Emojis.user, '📈'];
+function buildHelpEmbed(client, guildId, page = 0, catPage = 0, commandType = 'slash') {
+  const categories = ['admin', 'moderateur', 'utilisateur', 'xp', 'music'];
+  const titles = ['🛠️ Commandes Administrateur', '🛡️ Commandes Modérateur', '👤 Commandes Utilisateur', '📈 Commandes XP', '🎵 Commandes Musique'];
+  const emojiTitle = ['🛠️', '🛡️', '👤', '📈', '🎵'];
   const cat = categories[page] || 'utilisateur';
 
-  const isSlash = true; // pour la cohérence du contenu; l’aide présente slash par défaut
+  const isSlash = commandType === 'slash';
   const cmds = isSlash ? Array.from(client.slashCommands?.values?.() || []) : Array.from(client.prefixCommands?.values?.() || []);
+  
+  const prefix = getPrefix(guildId, '!');
+  const commandPrefix = isSlash ? '/' : prefix;
+  
   const listLines = cmds
     .filter(c => (c.category || 'utilisateur') === cat)
     .map(c => {
-      const name = isSlash ? `/${c.data?.name}` : `${c.name}`;
+      const name = isSlash ? `/${c.data?.name}` : `${prefix}${c.name}`;
       const desc = isSlash ? (c.data?.description || 'Sans description') : (c.description || 'Sans description');
-      const usage = c.usage ? `\nUsage: ${c.usage}` : '';
-      return `• ${name} — ${desc}${usage}`;
+      const usage = c.usage ? `\n📝 Usage: \`${c.usage.replace(/^!/, prefix)}\`` : '';
+      const aliases = !isSlash && c.aliases && c.aliases.length > 0 ? `\n🔗 Alias: \`${c.aliases.map(a => prefix + a).join('`, `')}\`` : '';
+      return `**${name}** — ${desc}${usage}${aliases}`;
     });
-  const prefix = getPrefix(guildId, '!');
-  const header = `Préfixe actuel du serveur: \`${prefix}\``;
-  const pageSize = 8;
+
+  // En-tête avec informations sur le type de commande
+  const typeInfo = isSlash ? 
+    `🔹 **Commandes Slash** - Tapez \`/\` pour commencer\n🔸 *Astuce: Utilisez \`${prefix}help\` pour voir les commandes préfixées*` :
+    `🔹 **Commandes Préfixées** - Préfixe actuel: \`${prefix}\`\n🔸 *Astuce: Utilisez \`/help\` pour voir les commandes slash*`;
+  
+  const pageSize = 6; // Réduire pour un meilleur affichage
   const totalPages = Math.max(1, Math.ceil((listLines.length || 1) / pageSize));
   const safeCatPage = Math.min(Math.max(0, catPage), totalPages - 1);
   const start = safeCatPage * pageSize;
   const end = start + pageSize;
   const current = listLines.slice(start, end);
-  const descBody = current.length ? current.join('\n') : 'Aucune commande trouvée.';
-  const full = `${header}\n\n${descBody}`;
-  return { embed: createInfoEmbed(`${emojiTitle[page] || Emojis.help} ${titles[page] || 'Aide'}`, full, {}), totalPages, catIndex: page, catPage: safeCatPage };
+  
+  const descBody = current.length ? current.join('\n\n') : '❌ Aucune commande trouvée dans cette catégorie.';
+  
+  // Footer avec informations de pagination
+  const pageInfo = totalPages > 1 ? `\n\n📄 Page ${safeCatPage + 1}/${totalPages} • ${listLines.length} commande(s) au total` : `\n\n📊 ${listLines.length} commande(s) disponible(s)`;
+  
+  const full = `${typeInfo}\n\n${descBody}${pageInfo}`;
+  
+  return { 
+    embed: createInfoEmbed(`${titles[page] || '❓ Aide'}`, full, { 
+      footer: `💡 Utilisez les boutons ci-dessous pour naviguer • Type: ${commandType.toUpperCase()}`
+    }), 
+    totalPages, 
+    catIndex: page, 
+    catPage: safeCatPage,
+    commandType 
+  };
 }
 
 // ============ Voice Logs Config (minimal panel) ============
@@ -49,46 +74,299 @@ export function buildVoiceLogsInitial(guild) {
   return { embed, components: [row] };
 }
 
-function helpButtons(page = 0, totalPages = 1, catPage = 0) {
-  const prev = new ButtonBuilder().setCustomId(`help_prev_${page}`).setLabel('Précédent').setStyle(ButtonStyle.Secondary);
-  const next = new ButtonBuilder().setCustomId(`help_next_${page}`).setLabel('Suivant').setStyle(ButtonStyle.Primary);
-  const row1 = new ActionRowBuilder().addComponents(prev, next);
-  const catAdmin = new ButtonBuilder().setCustomId('help_cat_admin').setLabel('Admin').setEmoji('🛠️').setStyle(ButtonStyle.Secondary);
-  const catMod = new ButtonBuilder().setCustomId('help_cat_moderateur').setLabel('Modérateur').setEmoji('🛡️').setStyle(ButtonStyle.Secondary);
-  const catUser = new ButtonBuilder().setCustomId('help_cat_utilisateur').setLabel('Utilisateur').setEmoji('👤').setStyle(ButtonStyle.Secondary);
-  const catXP = new ButtonBuilder().setCustomId('help_cat_xp').setLabel('XP').setEmoji('📈').setStyle(ButtonStyle.Secondary);
-  const row2 = new ActionRowBuilder().addComponents(catAdmin, catMod, catUser, catXP);
+function helpButtons(page = 0, totalPages = 1, catPage = 0, commandType = 'slash') {
+  // Navigation entre catégories (gauche/droite)
+  const prevCat = new ButtonBuilder()
+    .setCustomId(`help_prev_${page}`)
+    .setLabel('◀️ Catégorie')
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(page === 0);
+  
+  const nextCat = new ButtonBuilder()
+    .setCustomId(`help_next_${page}`)
+    .setLabel('Catégorie ▶️')
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(page === 4); // 5 catégories (0-4)
+  
+  const row1 = new ActionRowBuilder().addComponents(prevCat, nextCat);
+
+  // Boutons de catégories avec style actif/inactif
+  const catAdmin = new ButtonBuilder()
+    .setCustomId('help_cat_admin')
+    .setLabel('Admin')
+    .setEmoji('🛠️')
+    .setStyle(page === 0 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+  const catMod = new ButtonBuilder()
+    .setCustomId('help_cat_moderateur')
+    .setLabel('Modérateur')
+    .setEmoji('🛡️')
+    .setStyle(page === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+  const catUser = new ButtonBuilder()
+    .setCustomId('help_cat_utilisateur')
+    .setLabel('Utilisateur')
+    .setEmoji('👤')
+    .setStyle(page === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+  const catXP = new ButtonBuilder()
+    .setCustomId('help_cat_xp')
+    .setLabel('XP')
+    .setEmoji('📈')
+    .setStyle(page === 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+  const catMusic = new ButtonBuilder()
+    .setCustomId('help_cat_music')
+    .setLabel('Musique')
+    .setEmoji('🎵')
+    .setStyle(page === 4 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+
+  const row2 = new ActionRowBuilder().addComponents(catAdmin, catMod, catUser, catXP, catMusic);
+  
   const rows = [row1, row2];
+  
+  // Navigation des pages si nécessaire
   if (totalPages > 1) {
-    const pprev = new ButtonBuilder().setCustomId(`help_pg_prev_${page}_${catPage}`).setLabel('Page précédente').setStyle(ButtonStyle.Secondary);
-    const indicator = new ButtonBuilder().setCustomId('help_pg_indicator').setLabel(`Page ${catPage + 1}/${totalPages}`).setStyle(ButtonStyle.Secondary).setDisabled(true);
-    const pnext = new ButtonBuilder().setCustomId(`help_pg_next_${page}_${catPage}`).setLabel('Page suivante').setStyle(ButtonStyle.Secondary);
+    const pprev = new ButtonBuilder()
+      .setCustomId(`help_pg_prev_${page}_${catPage}`)
+      .setLabel('◀️ Page')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(catPage === 0);
+      
+    const indicator = new ButtonBuilder()
+      .setCustomId('help_pg_indicator')
+      .setLabel(`${catPage + 1}/${totalPages}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true);
+      
+    const pnext = new ButtonBuilder()
+      .setCustomId(`help_pg_next_${page}_${catPage}`)
+      .setLabel('Page ▶️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(catPage >= totalPages - 1);
+      
     const row3 = new ActionRowBuilder().addComponents(pprev, indicator, pnext);
     rows.push(row3);
   }
+  
+  // Bouton pour changer de type de commande
+  const switchType = new ButtonBuilder()
+    .setCustomId(`help_switch_type_${commandType}`)
+    .setLabel(commandType === 'slash' ? '🔄 Voir Préfixées' : '🔄 Voir Slash')
+    .setStyle(ButtonStyle.Success)
+    .setEmoji('🔄');
+    
+  const row4 = new ActionRowBuilder().addComponents(switchType);
+  rows.push(row4);
+  
   return rows;
 }
 
 export async function handleHelpButton(interaction, client) {
   const id = interaction.customId;
-  const matchPrev = id.match(/^help_prev_(\d+)/);
-  const matchNext = id.match(/^help_next_(\d+)/);
-  const matchPgPrev = id.match(/^help_pg_prev_(\d+)_(\d+)/);
-  const matchPgNext = id.match(/^help_pg_next_(\d+)_(\d+)/);
-  let page = 0;
-  let catPage = 0;
-  if (matchPrev) page = Math.max(0, (parseInt(matchPrev[1], 10) - 1 + 3) % 3);
-  if (matchNext) page = (parseInt(matchNext[1], 10) + 1) % 3;
-  if (id === 'help_cat_admin') page = 0;
-  if (id === 'help_cat_moderateur') page = 1;
-  if (id === 'help_cat_utilisateur') page = 2;
-  if (id === 'help_cat_xp') page = 3;
-  if (matchPgPrev) { page = parseInt(matchPgPrev[1], 10); catPage = Math.max(0, parseInt(matchPgPrev[2], 10) - 1); }
-  if (matchPgNext) { page = parseInt(matchPgNext[1], 10); catPage = parseInt(matchPgNext[2], 10) + 1; }
-  const data = buildHelpEmbed(client, interaction.guildId, page, catPage);
-  // Ajuster catPage pour rester dans bornes avec totalPages
-  const adjCatPage = Math.min(data.catPage, Math.max(0, data.totalPages - 1));
-  await interaction.update({ embeds: [data.embed], components: helpButtons(page, data.totalPages, adjCatPage) });
+  const member = interaction.member;
+  const guildId = interaction.guildId;
+  const prefix = getPrefix(guildId, '!');
+  
+  try {
+    // Vérifier les permissions
+    const hasAdminPerms = member.permissions.has(PermissionFlagsBits.Administrator);
+    const hasModPerms = member.permissions.has(PermissionFlagsBits.ModerateMembers) || 
+                       member.permissions.has(PermissionFlagsBits.KickMembers) || 
+                       member.permissions.has(PermissionFlagsBits.BanMembers);
+
+    // Importer les fonctions nécessaires
+    const { getAvailableCategories, createCategoryEmbed, createNavigationButtons } = 
+      await import('../../commands/slashcommands/utilisateur/help.js');
+
+    // Gestion des boutons d'action (non-pagination)
+    if (id === 'help_copy_prefix') {
+      const prefixEmbed = new EmbedBuilder()
+        .setColor('#00ff88')
+        .setTitle('📋 Préfixe du serveur')
+        .setDescription(`Le préfixe actuel de ce serveur est : \`${prefix}\``)
+        .addFields(
+          {
+            name: '💡 Comment utiliser ?',
+            value: `Tapez \`${prefix}help\` pour voir toutes les commandes préfixées\nExemple : \`${prefix}ping\`, \`${prefix}userinfo\``,
+            inline: false
+          },
+          {
+            name: '⚙️ Configuration',
+            value: `Seuls les administrateurs peuvent modifier le préfixe avec \`/config prefix\``,
+            inline: false
+          }
+        )
+        .setFooter({ text: 'Préfixe copié dans votre presse-papiers !' })
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [prefixEmbed],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    if (id === 'help_invite_bot') {
+      const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`;
+      
+      const inviteEmbed = new EmbedBuilder()
+        .setColor('#5865f2')
+        .setTitle('🤖 Inviter le bot')
+        .setDescription(`Ajoutez **${client.user.username}** à votre serveur Discord !`)
+        .setThumbnail(client.user.displayAvatarURL({ dynamic: true, size: 256 }))
+        .addFields(
+          {
+            name: '🔗 Lien d\'invitation',
+            value: `[**Cliquez ici pour inviter ${client.user.username}**](${inviteUrl})`,
+            inline: false
+          },
+          {
+            name: '🛡️ Permissions incluses',
+            value: '• **Administrateur** (recommandé)\n• Accès à toutes les fonctionnalités\n• Gestion des rôles et canaux\n• Commandes slash et préfixées',
+            inline: false
+          },
+          {
+            name: '✨ Fonctionnalités principales',
+            value: '• Système de modération complet\n• Musique et divertissement\n• Système XP et niveaux\n• Rôles RGB dynamiques\n• Configuration personnalisée',
+            inline: false
+          }
+        )
+        .setFooter({ text: 'Merci de faire confiance à notre bot !' })
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [inviteEmbed],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    if (id === 'help_support_server') {
+      const supportEmbed = new EmbedBuilder()
+        .setColor('#ff6b6b')
+        .setTitle('🆘 Support & Assistance')
+        .setDescription('Besoin d\'aide ? Notre équipe est là pour vous accompagner !')
+        .addFields(
+          {
+            name: '💬 Serverinfo Discord',
+            value: '[**Rejoindre le serverinfo de support**](https://discord.gg/votre-serveur)\nCommunauté active et support en temps réel',
+            inline: false
+          },
+          {
+            name: '📧 Contact direct',
+            value: '**Email :** support@votre-bot.com\n**Réponse :** Sous 24h en moyenne',
+            inline: true
+          },
+          {
+            name: '🐛 Signaler un bug',
+            value: 'Utilisez `/bugreport` ou contactez-nous directement sur le serverinfo',
+            inline: true
+          },
+          {
+            name: '💡 Suggestions',
+            value: 'Vos idées nous intéressent !\nPartagez-les sur notre serverinfo Discord',
+            inline: false
+          },
+          {
+            name: '📚 Documentation',
+            value: 'Consultez notre guide complet avec `/help` ou sur notre site web',
+            inline: false
+          }
+        )
+        .setFooter({ text: 'Nous sommes là pour vous aider ! 💙' })
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [supportEmbed],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    if (id === 'help_refresh') {
+      // Actualiser la page actuelle
+      const currentEmbed = interaction.message.embeds[0];
+      let currentPage = 0;
+      if (currentEmbed && currentEmbed.footer && currentEmbed.footer.text) {
+        const footerMatch = currentEmbed.footer.text.match(/Page (\d+)\/(\d+)/);
+        if (footerMatch) {
+          currentPage = parseInt(footerMatch[1]) - 1; // Convertir en index 0-based
+        }
+      }
+      
+      const availableCategories = getAvailableCategories(hasAdminPerms, hasModPerms);
+      if (currentPage < 0 || currentPage >= availableCategories.length) {
+        currentPage = 0;
+      }
+      
+      const category = availableCategories[currentPage];
+      const embed = createCategoryEmbed(category, prefix, client, currentPage + 1, availableCategories.length);
+      const components = createNavigationButtons(currentPage, availableCategories.length, prefix);
+      
+      await interaction.update({
+        embeds: [embed],
+        components: components
+      });
+      return;
+    }
+
+    // Gestion de la pagination
+    const availableCategories = getAvailableCategories(hasAdminPerms, hasModPerms);
+    let currentPage = 0;
+
+    // Extraire le numéro de page depuis l'ID du bouton
+    if (id.startsWith('help_page_')) {
+      currentPage = parseInt(id.split('_')[2]) || 0;
+    } else if (id.startsWith('help_nav_prev_')) {
+      // Récupérer la page actuelle depuis l'embed existant
+      const currentEmbed = interaction.message.embeds[0];
+      if (currentEmbed && currentEmbed.footer && currentEmbed.footer.text) {
+        const footerMatch = currentEmbed.footer.text.match(/Page (\d+)\/(\d+)/);
+        if (footerMatch) {
+          const currentPageFromFooter = parseInt(footerMatch[1]);
+          currentPage = Math.max(0, currentPageFromFooter - 1 - 1); // -1 pour convertir en index 0-based, -1 pour page précédente
+        }
+      }
+    } else if (id.startsWith('help_nav_next_')) {
+      // Récupérer la page actuelle depuis l'embed existant
+      const currentEmbed = interaction.message.embeds[0];
+      if (currentEmbed && currentEmbed.footer && currentEmbed.footer.text) {
+        const footerMatch = currentEmbed.footer.text.match(/Page (\d+)\/(\d+)/);
+        if (footerMatch) {
+          const currentPageFromFooter = parseInt(footerMatch[1]);
+          currentPage = Math.min(availableCategories.length - 1, currentPageFromFooter - 1 + 1); // -1 pour convertir en index 0-based, +1 pour page suivante
+        }
+      }
+    }
+
+    // Vérifier que la page est valide
+    if (currentPage < 0 || currentPage >= availableCategories.length) {
+      currentPage = 0;
+    }
+
+    // Créer l'embed pour la page demandée
+    const category = availableCategories[currentPage];
+    const embed = createCategoryEmbed(category, prefix, client, currentPage + 1, availableCategories.length);
+    const components = createNavigationButtons(currentPage, availableCategories.length, prefix);
+
+    // Mettre à jour le message
+    await interaction.update({
+      embeds: [embed],
+      components: components
+    });
+
+
+
+  } catch (error) {
+    console.error('❌ [ERREUR] handleHelpButton:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Une erreur est survenue lors du traitement de votre demande.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
 }
 
 function buildLogsPanelEmbed(guild, conf) {
@@ -125,9 +403,9 @@ export async function handleLogsButton(interaction, client) {
   await interaction.update({ embeds: [embed], components: logsButtons(updated) });
 }
 
-export function buildHelpInitial(client, guildId) {
-  const data = buildHelpEmbed(client, guildId, 0, 0);
-  return { embed: data.embed, components: helpButtons(0, data.totalPages, 0) };
+export function buildHelpInitial(client, guildId, commandType = 'slash') {
+  const data = buildHelpEmbed(client, guildId, 0, 0, commandType);
+  return { embed: data.embed, components: helpButtons(0, data.totalPages, 0, commandType) };
 }
 
 export function buildLogsInitial(guild) {
@@ -263,7 +541,6 @@ export async function handleXPModal(interaction) {
 function buildServerInfoButtons(activeKey, page = 0, totalPages = 1) {
   const cats = [
     { key: 'general', emoji: '🏠', label: 'Infos' },
-    { key: 'members', emoji: '👥', label: 'Membres' },
     { key: 'roles', emoji: '🤖', label: 'Rôles' },
     { key: 'emojis', emoji: '😀', label: 'Émojis' },
     { key: 'stickers', emoji: '🪄', label: 'Stickers' },
@@ -347,18 +624,14 @@ async function buildServerInfoData(guild, key = 'general', page = 0) {
         { name: '👑 Propriétaire', value: `<@${ownerId}> (${ownerId})`, inline: true },
         { name: '🚀 Boost', value: `Niveau: **${boostLevel}**\nBoosts: **${boosts}**`, inline: true },
         { name: '💬 Salons', value: `Texte: **${textCount}**\nVocal: **${voiceCount}**\nCatégories: **${categoryCount}**`, inline: true },
+        { name: '👥 Membres', value: `Total: **${guild.memberCount}**\nHumains: **${humans}**\nBots: **${bots}**`, inline: true },
+        { name: '📶 Statuts', value: `🟢 En ligne: **${online}**\n🌙 Inactif: **${idle}**\n⛔ DND: **${dnd}**\n⚫ Hors ligne: **${offline}**`, inline: true },
         { name: '🔣 Préfixe', value: `\`${prefix}\``, inline: true },
         { name: '📝 Logs', value: `État: **${conf?.logsActive ? 'Activés' : 'Désactivés'}**\nSalon: ${conf?.logChannelId ? '<#' + conf.logChannelId + '>' : 'Non défini'}`, inline: true },
         { name: '📅 Créé le', value: created, inline: false },
       ];
       break;
-    case 'members':
-      fields = [
-        { name: '👥 Membres', value: `Total: **${guild.memberCount}**\nHumains: **${humans}**\nBots: **${bots}**`, inline: true },
-        { name: '📶 Statuts', value: `🟢 En ligne: **${online}**\n🌙 Inactif: **${idle}**\n⛔ DND: **${dnd}**\n⚫ Hors ligne: **${offline}**`, inline: true },
-        { name: '🚀 Boosters', value: `**${boosts}** utilisateur(s)`, inline: true },
-      ];
-      break;
+
     case 'roles':
       items = roles.map(r => `<@&${r.id}>`);
       break;
@@ -469,7 +742,7 @@ export async function handleReactionRoleButton(interaction, client) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return interaction.reply({
       content: '❌ Vous devez être administrateur pour utiliser ce panel.',
-      ephemeral: true
+      flags: 64 // MessageFlags.Ephemeral
     });
   }
 
@@ -530,22 +803,33 @@ export async function handleReactionRoleButton(interaction, client) {
       break;
 
     case 'rr_list_rules':
-      const guildRules = config.filter(rule => rule.guildId === interaction.guild.id);
-      
-      if (guildRules.length === 0) {
-        const embed = createInfoEmbed('📋 Liste des règles', 'Aucune règle de reaction role configurée pour ce serveur.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+      if (config.length === 0) {
+        const embed = createInfoEmbed('📋 Liste des règles', 'Aucune règle de reaction role configurée.');
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         return;
       }
 
-      const rulesList = guildRules.map((rule, index) => {
-        const role = interaction.guild.roles.cache.get(rule.roleId);
-        const roleName = role ? role.name : 'Rôle introuvable';
-        return `**${index + 1}.** ${rule.emoji} → ${roleName}\n   Message: ${rule.messageId}\n   ${rule.description || 'Pas de description'}`;
-      }).join('\n\n');
+      let rulesList = '';
+      let ruleIndex = 1;
+      
+      for (const rule of config) {
+        const channel = interaction.guild.channels.cache.get(rule.id_salon);
+        const channelName = channel ? `<#${rule.id_salon}>` : 'Canal introuvable';
+        
+        rulesList += `**Message ${ruleIndex}:** ${rule.id_message}\n**Canal:** ${channelName}\n**Réactions:**\n`;
+        
+        for (const reaction of rule.reactions) {
+          const role = interaction.guild.roles.cache.get(reaction.id_role);
+          const roleName = role ? role.name : 'Rôle introuvable';
+          const emoji = reaction.id_emoji;
+          rulesList += `  • ${emoji} → ${roleName}\n`;
+        }
+        rulesList += '\n';
+        ruleIndex++;
+      }
 
       const listEmbed = createInfoEmbed('📋 Liste des règles de reaction roles', rulesList);
-      await interaction.reply({ embeds: [listEmbed], ephemeral: true });
+      await interaction.reply({ embeds: [listEmbed], flags: 64 }); // MessageFlags.Ephemeral
       break;
 
     case 'rr_toggle_logs':
@@ -563,7 +847,7 @@ export async function handleReactionRoleButton(interaction, client) {
         '📝 Logs des reaction roles',
         `Les logs ont été **${!currentLogsState ? 'activés' : 'désactivés'}** pour ce serveur.`
       );
-      await interaction.reply({ embeds: [logsEmbed], ephemeral: true });
+      await interaction.reply({ embeds: [logsEmbed], flags: 64 }); // MessageFlags.Ephemeral
       break;
 
     case 'rr_remove_rule':
@@ -591,6 +875,145 @@ export async function handleReactionRoleButton(interaction, client) {
       removeModal.addComponents(removeFirstRow, removeSecondRow);
       await interaction.showModal(removeModal);
       break;
+
+    // Nouveaux gestionnaires de modaux pour le système ReactionRole avancé
+    case 'rr_add_reaction_modal':
+      const addMessageId = interaction.fields.getTextInputValue('rr_add_message_id');
+      const addEmoji = interaction.fields.getTextInputValue('rr_add_emoji');
+      const addRoleId = interaction.fields.getTextInputValue('rr_add_role_id');
+
+      // Vérifications
+      const addRole = interaction.guild.roles.cache.get(addRoleId);
+      if (!addRole) {
+        const embed = createErrorEmbed('❌ Erreur', 'Rôle introuvable avec cet ID.');
+        await interaction.reply({ embeds: [embed], flags: 64 });
+        return;
+      }
+
+      // Vérifier que le message existe
+      let addMessage;
+      try {
+        addMessage = await interaction.channel.messages.fetch(addMessageId);
+      } catch (error) {
+        const embed = createErrorEmbed('❌ Erreur', 'Message introuvable dans ce canal.');
+        await interaction.reply({ embeds: [embed], flags: 64 });
+        return;
+      }
+
+      try {
+        // Ajouter la réaction role
+        await reactionRoleStore.addReactionRole(
+          interaction.guild.id,
+          addMessageId,
+          interaction.channel.id,
+          addEmoji,
+          addRoleId
+        );
+
+        // Ajouter la réaction au message
+        try {
+          await addMessage.react(addEmoji);
+        } catch (error) {
+          console.warn('Impossible d\'ajouter la réaction au message:', error);
+        }
+
+        const embed = createSuccessEmbed(
+          '✅ ReactionRole Ajouté',
+          `**Message:** [Aller au message](${addMessage.url})\n**Emoji:** ${addEmoji}\n**Rôle:** ${addRole}`
+        );
+
+        await interaction.reply({ embeds: [embed], flags: 64 });
+        
+        // Log de l'action
+        try {
+          await reactionRoleLogger.logReactionAdded(interaction.guild, interaction.user, addRole, addMessage, addEmoji);
+        } catch (logError) {
+          console.error('Erreur lors du logging:', logError);
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'ajout du ReactionRole:', error);
+        const embed = createErrorEmbed('❌ Erreur', 'Impossible d\'ajouter le ReactionRole. Vérifiez que cette configuration n\'existe pas déjà.');
+        await interaction.reply({ embeds: [embed], flags: 64 });
+      }
+      break;
+
+    case 'rr_remove_reaction_modal':
+      const removeMessageId = interaction.fields.getTextInputValue('rr_remove_message_id');
+      const removeEmoji = interaction.fields.getTextInputValue('rr_remove_emoji');
+
+      try {
+        const success = await reactionRoleStore.removeReactionRole(interaction.guild.id, removeMessageId, removeEmoji);
+
+        if (!success) {
+          const embed = createErrorEmbed('❌ Erreur', 'Aucune configuration trouvée pour ce message et cet emoji.');
+          await interaction.reply({ embeds: [embed], flags: 64 });
+          return;
+        }
+
+        // Supprimer la réaction du message si possible
+        try {
+          const message = await interaction.channel.messages.fetch(removeMessageId);
+          const reaction = message.reactions.cache.find(r => r.emoji.name === removeEmoji || r.emoji.toString() === removeEmoji);
+          if (reaction) {
+            await reaction.users.remove(interaction.client.user);
+          }
+        } catch (error) {
+          console.warn('Impossible de supprimer la réaction du message:', error);
+        }
+
+        const embed = createSuccessEmbed(
+          '✅ ReactionRole Supprimé',
+          `**Message ID:** ${removeMessageId}\n**Emoji:** ${removeEmoji}`
+        );
+
+        await interaction.reply({ embeds: [embed], flags: 64 });
+        
+        // Log de l'action (on ne peut pas récupérer le rôle car il a été supprimé)
+        try {
+          const message = await interaction.channel.messages.fetch(removeMessageId);
+          await reactionRoleLogger.logReactionRemoved(interaction.guild, interaction.user, null, message, removeEmoji);
+        } catch (logError) {
+          console.error('Erreur lors du logging:', logError);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la suppression du ReactionRole:', error);
+        const embed = createErrorEmbed('❌ Erreur', 'Impossible de supprimer le ReactionRole.');
+        await interaction.reply({ embeds: [embed], flags: 64 });
+      }
+      break;
+
+    case 'rr_config_logs_modal':
+      const channelId = interaction.fields.getTextInputValue('rr_logs_channel_id').trim();
+
+      if (channelId && channelId !== '') {
+        const channel = interaction.guild.channels.cache.get(channelId);
+        if (!channel) {
+          const embed = createErrorEmbed('❌ Erreur', 'Canal introuvable avec cet ID.');
+          await interaction.reply({ embeds: [embed], flags: 64 });
+          return;
+        }
+
+        await reactionRoleStore.setLogsChannel(interaction.guild.id, channelId);
+        
+        const embed = createSuccessEmbed(
+          '📍 Canal de Logs Configuré',
+          `Les logs seront envoyés dans ${channel}`
+        );
+        
+        await interaction.reply({ embeds: [embed], flags: 64 });
+        await reactionRoleLogger.logLogsConfigured(interaction.guild, interaction.user, channel);
+      } else {
+        await reactionRoleStore.setLogsChannel(interaction.guild.id, null);
+        
+        const embed = createSuccessEmbed(
+          '📍 Canal de Logs Désactivé',
+          'Les logs ont été désactivés'
+        );
+        
+        await interaction.reply({ embeds: [embed], flags: 64 });
+        await reactionRoleLogger.logLogsConfigured(interaction.guild, interaction.user, null);
+      }
+      break;
   }
 }
 
@@ -599,7 +1022,7 @@ export async function handleReactionRoleModal(interaction, client) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return interaction.reply({
       content: '❌ Vous devez être administrateur pour utiliser cette fonctionnalité.',
-      ephemeral: true
+      flags: 64 // MessageFlags.Ephemeral
     });
   }
 
@@ -629,7 +1052,7 @@ export async function handleReactionRoleModal(interaction, client) {
       
       if (!role) {
         const embed = createErrorEmbed('❌ Erreur', 'Le rôle spécifié est introuvable.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         return;
       }
 
@@ -642,35 +1065,42 @@ export async function handleReactionRoleModal(interaction, client) {
         await message.react(emoji);
       } catch (error) {
         const embed = createErrorEmbed('❌ Erreur', 'Impossible de trouver le message ou d\'ajouter la réaction.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         return;
       }
 
-      // Vérifier si la règle existe déjà
-      const existingRule = config.find(rule => 
-        rule.guildId === guild.id && 
-        rule.messageId === messageId && 
-        rule.emoji === emoji
+      // Chercher une règle existante pour ce message
+      let existingRule = config.find(rule => 
+        rule.id_salon === interaction.channel.id && 
+        rule.id_message === messageId
       );
 
+      // Vérifier si l'emoji existe déjà dans cette règle
       if (existingRule) {
-        const embed = createErrorEmbed('❌ Erreur', 'Une règle avec ce message et cet emoji existe déjà.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
-        return;
+        const existingReaction = existingRule.reactions.find(r => r.id_emoji === emoji);
+        if (existingReaction) {
+          const embed = createErrorEmbed('❌ Erreur', 'Une règle avec ce message et cet emoji existe déjà.');
+          await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
+          return;
+        }
+        
+        // Ajouter la nouvelle réaction à la règle existante
+        existingRule.reactions.push({
+          id_emoji: emoji,
+          id_role: roleId
+        });
+      } else {
+        // Créer une nouvelle règle
+        const newRule = {
+          id_salon: interaction.channel.id,
+          id_message: messageId,
+          reactions: [{
+            id_emoji: emoji,
+            id_role: roleId
+          }]
+        };
+        config.push(newRule);
       }
-
-      // Ajouter la nouvelle règle
-      const newRule = {
-        guildId: guild.id,
-        messageId: messageId,
-        emoji: emoji,
-        roleId: roleId,
-        description: description,
-        createdAt: new Date().toISOString(),
-        createdBy: interaction.user.id
-      };
-
-      config.push(newRule);
 
       // Sauvegarder la configuration
       try {
@@ -678,31 +1108,28 @@ export async function handleReactionRoleModal(interaction, client) {
         
         const embed = createSuccessEmbed(
           '✅ Règle ajoutée',
-          `La règle de reaction role a été ajoutée avec succès !\n\n**Message:** ${messageId}\n**Emoji:** ${emoji}\n**Rôle:** ${role.name}\n**Description:** ${description || 'Aucune'}`
+          `La règle de reaction role a été ajoutée avec succès !\n\n**Message:** ${messageId}\n**Emoji:** ${emoji}\n**Rôle:** ${role.name}\n**Canal:** <#${interaction.channel.id}>`
         );
         
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
 
         // Log de l'action
         const guildConfig = getGuildConfig(guild.id) || {};
-        if (guildConfig.reactionRoles?.logs !== false) {
+        if (guildConfig.reactionRoles?.logs !== false && guildConfig.logChannelId) {
           const logEmbed = createInfoEmbed(
             '📝 Reaction Role - Règle ajoutée',
-            `**Utilisateur:** ${interaction.user}\n**Message:** ${messageId}\n**Emoji:** ${emoji}\n**Rôle:** ${role}\n**Description:** ${description || 'Aucune'}`
+            `**Utilisateur:** ${interaction.user}\n**Message:** [Aller au message](https://discord.com/channels/${guild.id}/${interaction.channel.id}/${messageId})\n**Emoji:** ${emoji}\n**Rôle:** ${role}\n**Canal:** <#${interaction.channel.id}>`
           );
           
-          const logChannelId = guildConfig.logChannelId;
-          if (logChannelId) {
-            const logChannel = guild.channels.cache.get(logChannelId);
-            if (logChannel) {
-              await logChannel.send({ embeds: [logEmbed] });
-            }
+          const logChannel = guild.channels.cache.get(guildConfig.logChannelId);
+          if (logChannel) {
+            await logChannel.send({ embeds: [logEmbed] });
           }
         }
       } catch (error) {
         console.error('Erreur lors de la sauvegarde:', error);
         const embed = createErrorEmbed('❌ Erreur', 'Impossible de sauvegarder la configuration.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
       }
       break;
 
@@ -711,23 +1138,37 @@ export async function handleReactionRoleModal(interaction, client) {
       const removeEmoji = interaction.fields.getTextInputValue('rr_remove_emoji');
 
       // Trouver la règle à supprimer
-      const ruleIndex = config.findIndex(rule => 
-        rule.guildId === interaction.guild.id && 
-        rule.messageId === removeMessageId && 
-        rule.emoji === removeEmoji
-      );
-
-      if (ruleIndex === -1) {
-        const embed = createErrorEmbed('❌ Erreur', 'Aucune règle trouvée avec ce message et cet emoji.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
-        return;
+      let ruleFound = false;
+      let removedRole = null;
+      
+      for (let i = 0; i < config.length; i++) {
+        const rule = config[i];
+        if (rule.id_message === removeMessageId) {
+          // Chercher l'emoji dans les réactions
+          const reactionIndex = rule.reactions.findIndex(reaction => reaction.id_emoji === removeEmoji);
+          
+          if (reactionIndex !== -1) {
+            removedRole = interaction.guild.roles.cache.get(rule.reactions[reactionIndex].id_role);
+            
+            // Supprimer cette réaction spécifique
+            rule.reactions.splice(reactionIndex, 1);
+            
+            // Si plus aucune réaction, supprimer la règle entière
+            if (rule.reactions.length === 0) {
+              config.splice(i, 1);
+            }
+            
+            ruleFound = true;
+            break;
+          }
+        }
       }
 
-      const removedRule = config[ruleIndex];
-      const removedRole = interaction.guild.roles.cache.get(removedRule.roleId);
-
-      // Supprimer la règle
-      config.splice(ruleIndex, 1);
+      if (!ruleFound) {
+        const embed = createErrorEmbed('❌ Erreur', 'Aucune règle trouvée avec ce message et cet emoji.');
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
+        return;
+      }
 
       // Sauvegarder la configuration
       try {
@@ -738,29 +1179,758 @@ export async function handleReactionRoleModal(interaction, client) {
           `La règle de reaction role a été supprimée avec succès !\n\n**Message:** ${removeMessageId}\n**Emoji:** ${removeEmoji}\n**Rôle:** ${removedRole ? removedRole.name : 'Rôle introuvable'}`
         );
         
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
 
         // Log de l'action
         const guildConfig = getGuildConfig(interaction.guild.id) || {};
         if (guildConfig.reactionRoles?.logs !== false) {
           const logEmbed = createInfoEmbed(
             '📝 Reaction Role - Règle supprimée',
-            `**Utilisateur:** ${interaction.user}\n**Message:** ${removeMessageId}\n**Emoji:** ${removeEmoji}\n**Rôle:** ${removedRole || 'Rôle introuvable'}`
+            `**Utilisateur:** ${interaction.user}\n**Message:** [Aller au message](https://discord.com/channels/${interaction.guild.id}/${interaction.channel.id}/${removeMessageId})\n**Emoji:** ${removeEmoji}\n**Rôle:** ${removedRole ? removedRole.name : 'Rôle introuvable'}\n**Canal:** <#${interaction.channel.id}>`
           );
           
-          const logChannelId = guildConfig.logChannelId;
-          if (logChannelId) {
-            const logChannel = interaction.guild.channels.cache.get(logChannelId);
-            if (logChannel) {
-              await logChannel.send({ embeds: [logEmbed] });
-            }
+          const logChannel = interaction.guild.channels.cache.get(guildConfig.logChannelId);
+          if (logChannel) {
+            await logChannel.send({ embeds: [logEmbed] });
           }
         }
       } catch (error) {
         console.error('Erreur lors de la sauvegarde:', error);
         const embed = createErrorEmbed('❌ Erreur', 'Impossible de sauvegarder la configuration.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
       }
       break;
+
+    // Nouveaux gestionnaires pour le système ReactionRole avancé
+    case 'rr_add_reaction':
+      const addReactionModal = new ModalBuilder()
+        .setCustomId('rr_add_reaction_modal')
+        .setTitle('➕ Ajouter un ReactionRole');
+
+      const addMsgIdInput = new TextInputBuilder()
+        .setCustomId('rr_add_message_id')
+        .setLabel('ID du message')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('123456789012345678');
+
+      const addEmojiInput = new TextInputBuilder()
+        .setCustomId('rr_add_emoji')
+        .setLabel('Emoji')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('🎉 ou <:nom:123456789012345678>');
+
+      const addRoleIdInput = new TextInputBuilder()
+        .setCustomId('rr_add_role_id')
+        .setLabel('ID du rôle')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('123456789012345678');
+
+      const addRow1 = new ActionRowBuilder().addComponents(addMsgIdInput);
+      const addRow2 = new ActionRowBuilder().addComponents(addEmojiInput);
+      const addRow3 = new ActionRowBuilder().addComponents(addRoleIdInput);
+
+      addReactionModal.addComponents(addRow1, addRow2, addRow3);
+      await interaction.showModal(addReactionModal);
+      break;
+
+    case 'rr_remove_reaction':
+      const removeReactionModal = new ModalBuilder()
+        .setCustomId('rr_remove_reaction_modal')
+        .setTitle('➖ Supprimer un ReactionRole');
+
+      const removeMsgIdInput = new TextInputBuilder()
+        .setCustomId('rr_remove_message_id')
+        .setLabel('ID du message')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('123456789012345678');
+
+      const removeEmojiInput = new TextInputBuilder()
+        .setCustomId('rr_remove_emoji')
+        .setLabel('Emoji')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setPlaceholder('🎉 ou <:nom:123456789012345678>');
+
+      const removeRow1 = new ActionRowBuilder().addComponents(removeMsgIdInput);
+      const removeRow2 = new ActionRowBuilder().addComponents(removeEmojiInput);
+
+      removeReactionModal.addComponents(removeRow1, removeRow2);
+      await interaction.showModal(removeReactionModal);
+      break;
+
+    case 'rr_list_reactions':
+      const reactionRoles = await reactionRoleStore.getAllReactionRoles(interaction.guild.id);
+
+      if (reactionRoles.length === 0) {
+        const embed = createInfoEmbed('📋 Liste des ReactionRoles', 'Aucune configuration ReactionRole trouvée.');
+        await interaction.reply({ embeds: [embed], flags: 64 });
+        return;
+      }
+
+      let listDescription = '';
+      for (const rr of reactionRoles.slice(0, 10)) {
+        const status = rr.globalEnabled && rr.messageEnabled && rr.reactionEnabled ? '✅' : '❌';
+        const role = interaction.guild.roles.cache.get(rr.roleId);
+        const roleName = role ? role.name : 'Rôle supprimé';
+        const channel = interaction.guild.channels.cache.get(rr.channelId);
+        const channelName = channel ? channel.name : 'Canal supprimé';
+        
+        listDescription += `${status} **${rr.emoji}** → **${roleName}**\n`;
+        listDescription += `   📝 Message: \`${rr.messageId}\` | 📍 #${channelName}\n\n`;
+      }
+
+      if (reactionRoles.length > 10) {
+        listDescription += `... et ${reactionRoles.length - 10} autre(s)`;
+      }
+
+      const listEmbed = createInfoEmbed('📋 Liste des ReactionRoles', listDescription);
+      await interaction.reply({ embeds: [listEmbed], flags: 64 });
+      break;
+
+    case 'rr_toggle_system':
+      const enabled = await reactionRoleStore.toggleGuildEnabled(interaction.guild.id);
+      
+      const toggleEmbed = createSuccessEmbed(
+        `⚙️ Système ${enabled ? 'Activé' : 'Désactivé'}`,
+        `Le système ReactionRole a été ${enabled ? 'activé' : 'désactivé'} pour ce serveur.`
+      );
+      
+      await interaction.reply({ embeds: [toggleEmbed], flags: 64 });
+      await reactionRoleLogger.logSystemToggled(interaction.guild, interaction.user, enabled);
+      break;
+
+    case 'rr_config_logs':
+      const configLogsModal = new ModalBuilder()
+        .setCustomId('rr_config_logs_modal')
+        .setTitle('📝 Configuration des Logs');
+
+      const channelIdInput = new TextInputBuilder()
+        .setCustomId('rr_logs_channel_id')
+        .setLabel('ID du canal de logs (vide pour désactiver)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setPlaceholder('123456789012345678');
+
+      const configLogsRow = new ActionRowBuilder().addComponents(channelIdInput);
+      configLogsModal.addComponents(configLogsRow);
+      await interaction.showModal(configLogsModal);
+      break;
+
+    case 'rr_toggle_logs':
+      const logsEnabled = await reactionRoleStore.toggleLogs(interaction.guild.id);
+      
+      const logsToggleEmbed = createSuccessEmbed(
+        `📝 Logs ${logsEnabled ? 'Activés' : 'Désactivés'}`,
+        `Les logs ReactionRole ont été ${logsEnabled ? 'activés' : 'désactivés'}.`
+      );
+      
+      await interaction.reply({ embeds: [logsToggleEmbed], flags: 64 });
+      await reactionRoleLogger.logLogsToggled(interaction.guild, interaction.user, logsEnabled);
+      break;
+
+    case 'rr_reset_config':
+      const resetEmbed = createErrorEmbed(
+        '⚠️ Confirmation de Reset',
+        'Êtes-vous sûr de vouloir supprimer **TOUTE** la configuration ReactionRole ?\n\n**Cette action est irréversible !**'
+      );
+
+      const confirmButton = new ButtonBuilder()
+        .setCustomId('rr_confirm_reset')
+        .setLabel('✅ Confirmer')
+        .setStyle(ButtonStyle.Danger);
+
+      const cancelButton = new ButtonBuilder()
+        .setCustomId('rr_cancel_reset')
+        .setLabel('❌ Annuler')
+        .setStyle(ButtonStyle.Secondary);
+
+      const resetRow = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+
+      await interaction.reply({
+        embeds: [resetEmbed],
+        components: [resetRow],
+        flags: 64
+      });
+      break;
+
+    case 'rr_confirm_reset':
+      await reactionRoleStore.resetGuildConfig(interaction.guild.id);
+      
+      const resetSuccessEmbed = createSuccessEmbed(
+        '🔄 Configuration Réinitialisée',
+        'Toute la configuration ReactionRole a été supprimée avec succès.'
+      );
+      
+      await interaction.update({
+        embeds: [resetSuccessEmbed],
+        components: []
+      });
+      
+      // Log du reset (on ne peut pas récupérer les stats avant suppression)
+      await reactionRoleLogger.logSystemReset(interaction.guild, interaction.user, 0, 0);
+      break;
+
+    case 'rr_cancel_reset':
+      const cancelEmbed = createInfoEmbed(
+        '❌ Reset Annulé',
+        'La réinitialisation a été annulée. Votre configuration est préservée.'
+      );
+      
+      await interaction.update({
+        embeds: [cancelEmbed],
+        components: []
+      });
+      break;
   }
+
+  // Gestionnaires pour les boutons de gestion spécifique des réactions
+  if (interaction.customId.startsWith('rr_toggle_message_')) {
+    const [messageId, emoji] = interaction.customId.replace('rr_toggle_message_', '').split(':');
+    
+    try {
+      const reactionRole = await reactionRoleStore.getReactionRole(interaction.guild.id, messageId, emoji);
+      if (!reactionRole) {
+        return interaction.reply({
+          embeds: [createErrorEmbed('❌ Erreur', 'Cette configuration n\'existe plus.')],
+          flags: 64
+        });
+      }
+
+      const newStatus = !reactionRole.messageEnabled;
+      await reactionRoleStore.updateReactionRole(interaction.guild.id, messageId, emoji, {
+        messageEnabled: newStatus
+      });
+
+      const embed = createSuccessEmbed(
+        '✅ Statut mis à jour',
+        `Le message a été ${newStatus ? 'activé' : 'désactivé'} pour cette réaction.`
+      );
+
+      await interaction.reply({ embeds: [embed], flags: 64 });
+      // Log du toggle de message
+      try {
+        const message = await interaction.channel.messages.fetch(messageId);
+        await reactionRoleLogger.logMessageToggled(interaction.guild, interaction.user, message, newStatus);
+      } catch (logError) {
+        console.error('Erreur lors du logging:', logError);
+      }
+    } catch (error) {
+      console.error('Erreur toggle message:', error);
+      await interaction.reply({
+        embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue.')],
+        flags: 64
+      });
+    }
+    return;
+  }
+
+  if (interaction.customId.startsWith('rr_toggle_reaction_')) {
+    const [messageId, emoji] = interaction.customId.replace('rr_toggle_reaction_', '').split(':');
+    
+    try {
+      const reactionRole = await reactionRoleStore.getReactionRole(interaction.guild.id, messageId, emoji);
+      if (!reactionRole) {
+        return interaction.reply({
+          embeds: [createErrorEmbed('❌ Erreur', 'Cette configuration n\'existe plus.')],
+          flags: 64
+        });
+      }
+
+      const newStatus = !reactionRole.reactionEnabled;
+      await reactionRoleStore.updateReactionRole(interaction.guild.id, messageId, emoji, {
+        reactionEnabled: newStatus
+      });
+
+      const embed = createSuccessEmbed(
+        '✅ Statut mis à jour',
+        `La réaction a été ${newStatus ? 'activée' : 'désactivée'}.`
+      );
+
+      await interaction.reply({ embeds: [embed], flags: 64 });
+      // Log du toggle de réaction
+      try {
+        const message = await interaction.channel.messages.fetch(messageId);
+        const role = interaction.guild.roles.cache.get(reactionRole.roleId);
+        await reactionRoleLogger.logReactionToggled(interaction.guild, interaction.user, role, message, emoji, newStatus);
+      } catch (logError) {
+        console.error('Erreur lors du logging:', logError);
+      }
+    } catch (error) {
+      console.error('Erreur toggle reaction:', error);
+      await interaction.reply({
+        embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue.')],
+        flags: 64
+      });
+    }
+    return;
+  }
+
+  if (interaction.customId.startsWith('rr_delete_specific_')) {
+    const [messageId, emoji] = interaction.customId.replace('rr_delete_specific_', '').split(':');
+    
+    try {
+      const reactionRole = await reactionRoleStore.getReactionRole(interaction.guild.id, messageId, emoji);
+      if (!reactionRole) {
+        return interaction.reply({
+          embeds: [createErrorEmbed('❌ Erreur', 'Cette configuration n\'existe plus.')],
+          flags: 64
+        });
+      }
+
+      await reactionRoleStore.removeReactionRole(interaction.guild.id, messageId, emoji);
+
+      const embed = createSuccessEmbed(
+        '✅ Réaction supprimée',
+        `La configuration pour ${emoji} a été supprimée avec succès.`
+      );
+
+      await interaction.reply({ embeds: [embed], flags: 64 });
+      // Log de la suppression
+      try {
+        const message = await interaction.channel.messages.fetch(messageId);
+        const role = interaction.guild.roles.cache.get(reactionRole.roleId);
+        await reactionRoleLogger.logReactionRemoved(interaction.guild, interaction.user, role, message, emoji);
+      } catch (logError) {
+        console.error('Erreur lors du logging:', logError);
+      }
+    } catch (error) {
+      console.error('Erreur delete specific:', error);
+      await interaction.reply({
+        embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue.')],
+        flags: 64
+      });
+    }
+    return;
+  }
+}
+
+export async function handleReactionRoleSelectMenu(interaction, client) {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({
+            embeds: [createErrorEmbed('❌ Permissions insuffisantes', 'Vous devez être administrateur pour utiliser cette fonctionnalité.')],
+            flags: 64
+        });
+    }
+
+    try {
+        const selectedValue = interaction.values[0];
+        const [messageId, emoji] = selectedValue.split(':');
+        
+        // Récupérer les informations de la réaction
+        const reactionRole = await reactionRoleStore.getReactionRole(interaction.guild.id, messageId, emoji);
+        
+        if (!reactionRole) {
+            return interaction.reply({
+                embeds: [createErrorEmbed('❌ Erreur', 'Cette configuration de réaction n\'existe plus.')],
+                flags: 64
+            });
+        }
+
+        // Créer l'embed avec les détails de la réaction
+        const role = interaction.guild.roles.cache.get(reactionRole.roleId);
+        const channel = interaction.guild.channels.cache.get(reactionRole.channelId);
+        
+        const embed = createInfoEmbed(
+            '🔧 Gestion de la réaction',
+            `**Emoji :** ${emoji}\n` +
+            `**Rôle :** ${role ? role.toString() : 'Rôle supprimé'}\n` +
+            `**Message ID :** ${messageId}\n` +
+            `**Canal :** ${channel ? channel.toString() : 'Canal supprimé'}\n` +
+            `**Statut Global :** ${reactionRole.globalEnabled ? '✅ Activé' : '❌ Désactivé'}\n` +
+            `**Statut Message :** ${reactionRole.messageEnabled ? '✅ Activé' : '❌ Désactivé'}\n` +
+            `**Statut Réaction :** ${reactionRole.reactionEnabled ? '✅ Activé' : '❌ Désactivé'}`
+        );
+
+        // Créer les boutons d'action
+        const actionButtons = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`rr_toggle_message_${messageId}:${emoji}`)
+                    .setLabel(reactionRole.messageEnabled ? 'Désactiver Message' : 'Activer Message')
+                    .setStyle(reactionRole.messageEnabled ? ButtonStyle.Danger : ButtonStyle.Success)
+                    .setEmoji(reactionRole.messageEnabled ? '❌' : '✅'),
+                new ButtonBuilder()
+                    .setCustomId(`rr_toggle_reaction_${messageId}:${emoji}`)
+                    .setLabel(reactionRole.reactionEnabled ? 'Désactiver Réaction' : 'Activer Réaction')
+                    .setStyle(reactionRole.reactionEnabled ? ButtonStyle.Danger : ButtonStyle.Success)
+                    .setEmoji(reactionRole.reactionEnabled ? '❌' : '✅'),
+                new ButtonBuilder()
+                    .setCustomId(`rr_delete_specific_${messageId}:${emoji}`)
+                    .setLabel('Supprimer')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('🗑️')
+            );
+
+        await interaction.reply({
+            embeds: [embed],
+            components: [actionButtons],
+            flags: 64
+        });
+
+    } catch (error) {
+        console.error('Erreur dans handleReactionRoleSelectMenu:', error);
+        await interaction.reply({
+            embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue lors de la gestion de la sélection.')],
+            flags: 64
+        });
+    }
+}
+
+// Handler pour les boutons userinfo
+export async function handleUserInfoButton(interaction, client) {
+    try {
+        console.log('🔍 [DEBUG] Début handleUserInfoButton');
+        const customId = interaction.customId;
+        console.log('🔍 [DEBUG] CustomId:', customId);
+        
+        // Extraire les informations du customId
+        const parts = customId.split('_');
+        const page = parts[1]; // person, xp, ou social
+        const userId = parts[2];
+        console.log('🔍 [DEBUG] Page:', page, 'UserId:', userId);
+        
+        // Récupérer l'utilisateur et le membre
+        console.log('🔍 [DEBUG] Récupération de l\'utilisateur...');
+        const targetUser = await client.users.fetch(userId).catch((err) => {
+            console.error('❌ [ERREUR] Fetch user:', err);
+            return null;
+        });
+        if (!targetUser) {
+            console.log('❌ [ERREUR] Utilisateur introuvable');
+            return interaction.reply({
+                embeds: [createErrorEmbed('Erreur', 'Utilisateur introuvable.')],
+                flags: MessageFlags.Ephemeral
+            });
+        }
+        console.log('✅ [DEBUG] Utilisateur trouvé:', targetUser.tag);
+        
+        console.log('🔍 [DEBUG] Récupération du membre...');
+        const member = await interaction.guild.members.fetch(userId).catch((err) => {
+            console.error('❌ [ERREUR] Fetch member:', err);
+            return null;
+        });
+        if (!member) {
+            console.log('❌ [ERREUR] Membre introuvable');
+            return interaction.reply({
+                embeds: [createErrorEmbed('Erreur', 'Cet utilisateur n\'est pas membre de ce serveur.')],
+                flags: MessageFlags.Ephemeral
+            });
+        }
+        console.log('✅ [DEBUG] Membre trouvé:', member.user.tag);
+        
+        // Créer le nouvel embed et les nouveaux boutons
+        console.log('🔍 [DEBUG] Création de l\'embed...');
+        const embed = await createUserInfoEmbed(member, page, interaction.user.id);
+        console.log('✅ [DEBUG] Embed créé');
+        
+        console.log('🔍 [DEBUG] Création des boutons...');
+        const components = createUserInfoButtons(page, userId);
+        console.log('✅ [DEBUG] Boutons créés:', components.length);
+        
+        console.log('🔍 [DEBUG] Mise à jour de l\'interaction...');
+        await interaction.update({
+            embeds: [embed],
+            components: components
+        });
+        console.log('✅ [DEBUG] Interaction mise à jour avec succès');
+        
+    } catch (error) {
+        console.error('❌ [ERREUR] Handler userinfo button:', error);
+        console.error('❌ [ERREUR] Stack trace:', error.stack);
+        if (interaction.deferred || interaction.replied) {
+            return interaction.editReply({
+                embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la navigation.')],
+                components: []
+            });
+        }
+        return interaction.reply({
+            embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la navigation.')],
+            flags: MessageFlags.Ephemeral
+        });
+    }
+}
+
+// Fonctions utilitaires pour userinfo (importées depuis les commandes)
+async function createUserInfoEmbed(member, page, viewerId = null) {
+    const user = member.user;
+    const guild = member.guild;
+    
+    // Couleur basée sur le rôle le plus haut ou bleu par défaut
+    const highestRole = member.roles.highest;
+    const embedColor = highestRole.color !== 0 ? highestRole.color : 0x5865F2; // Discord Blurple
+    
+    switch (page) {
+        case 'person': // Page Informations utilisateur
+            return createUserInfoPage(member, embedColor);
+        case 'xp': // Page XP / Niveaux
+            return await createXPPage(member, embedColor);
+        case 'social': // Page Réseaux sociaux
+            return createSocialPage(member, embedColor, viewerId);
+        default:
+            return createUserInfoPage(member, embedColor);
+    }
+}
+
+// Page 1: Informations utilisateur
+function createUserInfoPage(member, color) {
+    const user = member.user;
+    
+    // Calcul du temps écoulé depuis la création du compte
+    const accountAge = getTimeAgo(user.createdAt);
+    const joinAge = getTimeAgo(member.joinedAt);
+    
+    // Status et activité
+    const presence = member.presence;
+    const status = getStatusText(presence?.status);
+    const activity = getActivityText(presence?.activities);
+    
+    // Nombre de rôles (sans @everyone)
+    const roleCount = member.roles.cache.size - 1;
+    
+    // Permissions spéciales
+    const isAdmin = member.permissions.has('Administrator');
+    const isModerator = member.permissions.has('ManageMessages') || member.permissions.has('KickMembers');
+    
+    const embed = new EmbedBuilder()
+        .setColor(color)
+        .setTitle(`${Emojis.profile} **Profil de ${user.username}**`)
+        .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
+        .setDescription(`${Emojis.clipboard} **Informations générales**\n\`\`\`yaml\nPseudo    : "${user.tag}"\nID        : ${user.id}\nType      : ${user.bot ? 'Bot' : 'Utilisateur'}\nStatut    : ${getStatusText(presence?.status)}\`\`\``)
+        .addFields(
+            { 
+                name: `${Emojis.calendar} **Dates importantes**`, 
+                value: `\`\`\`diff\n+ ${Emojis.birthday} Compte créé\n  ${accountAge}\n\n+ ${Emojis.join} Rejoint le serveur\n  ${joinAge}\`\`\``, 
+                inline: false 
+            },
+            { 
+                name: `${Emojis.roles} **Rôles & Permissions**`, 
+                value: `**${Emojis.progress} Rôles :** \`${roleCount} rôle${roleCount > 1 ? 's' : ''}\`\n\n**${Emojis.permissions} Niveau :**\n${isAdmin ? `${Emojis.crown} \`ADMINISTRATEUR\`` : isModerator ? `${Emojis.moderator} \`MODÉRATEUR\`` : `${Emojis.member} \`MEMBRE\``}`, 
+                inline: true 
+            },
+            { 
+                name: `${Emojis.phone} **Statut & Activité**`, 
+                value: `**${Emojis.status} Présence :**\n\`${getStatusText(presence?.status)}\`\n\n**${Emojis.activity} Activité :**\n${activity === 'Aucune activité' ? `\`${activity}\`` : `**${activity}**`}`, 
+                inline: true 
+            }
+        )
+        .setFooter({ text: `${Emojis.search} Informations détaillées • Page Personne • ${new Date().toLocaleString('fr-FR')}` })
+        .setTimestamp();
+    
+    return embed;
+}
+
+// Page 2: XP / Niveaux
+async function createXPPage(member, color) {
+    const user = member.user;
+    const guild = member.guild;
+    
+    try {
+        // Import dynamique pour éviter les erreurs de dépendance circulaire
+        const { getUserData, getRequiredXPForLevel: getRequiredXP } = await import('../store/xpStore.js');
+        const { progressBar } = await import('../utils/xp.js');
+        
+        const userData = getUserData(guild.id, user.id);
+        
+        // Calcul XP pour niveau suivant
+        const nextLevel = userData.level + 1;
+        const requiredXP = getRequiredXP(guild.id, nextLevel);
+        const progressPercent = Math.floor((userData.xp / requiredXP) * 100);
+        const progressBarText = progressBar(userData.xp, requiredXP);
+        
+        // Badges selon le niveau
+        const getBadge = (level) => {
+            if (level >= 50) return `${Emojis.legend} **Légende**`;
+            if (level >= 30) return `${Emojis.expert} **Expert**`;
+            if (level >= 20) return `${Emojis.veteran} **Vétéran**`;
+            if (level >= 10) return `${Emojis.active} **Actif**`;
+            return `${Emojis.beginner} **Débutant**`;
+        };
+        
+        const xpNeeded = requiredXP - userData.xp;
+        const voiceHours = Math.floor(userData.voiceTime / 3600);
+        const voiceMinutes = Math.floor((userData.voiceTime % 3600) / 60);
+        
+        const embed = new EmbedBuilder()
+            .setColor(0xFFD700) // Gold
+            .setTitle(`${Emojis.star} **Progression XP de ${user.username}**`)
+            .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
+            .setDescription(`${Emojis.medal} **Badge:** ${getBadge(userData.level)}\n\`\`\`yaml\nNiveau: ${userData.level}\nXP Total: ${userData.xp.toLocaleString()}\nProgression: ${progressPercent}%\`\`\``)
+            .addFields(
+                { 
+                    name: `${Emojis.progress} **Progression vers le niveau ${userData.level + 1}**`, 
+                    value: `**${Emojis.sparkles} XP Actuel:** \`${userData.xp.toLocaleString()}\`\n**${Emojis.target} XP Nécessaire:** \`${xpNeeded.toLocaleString()}\`\n**${Emojis.chart} Progression:** ${progressBarText} **${progressPercent}%**`, 
+                    inline: false 
+                },
+                { 
+                    name: `${Emojis.voice} **Temps Vocal**`, 
+                    value: `**${Emojis.time} Total:** \`${voiceHours}h ${voiceMinutes}m\`\n**${Emojis.progress} Minutes:** \`${Math.floor(userData.voiceTime / 60)}\`\n**${Emojis.tiktok} Activité:** ${userData.voiceTime > 0 ? `${Emojis.online} **Actif**` : `${Emojis.offline} **Inactif**`}`, 
+                    inline: true 
+                },
+                { 
+                    name: `${Emojis.medal} **Statistiques**`, 
+                    value: `**${Emojis.trophy} Niveau:** \`${userData.level}\`\n**${Emojis.target} Prochain niveau:** \`${userData.level + 1}\`\n**${Emojis.sparkles} XP restant:** \`${xpNeeded.toLocaleString()}\``, 
+                    inline: true 
+                }
+            )
+            .setFooter({ text: `${Emojis.star} Progression XP de ${user.tag} • Page XP • ${new Date().toLocaleString('fr-FR')}` })
+            .setTimestamp();
+        
+        return embed;
+    } catch (error) {
+        console.error('Erreur lors de la récupération des données XP:', error);
+        
+        const embed = new EmbedBuilder()
+            .setColor(0xFFD700) // Gold
+            .setTitle(`📈 Niveau et XP de ${user.tag}`)
+            .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
+            .setDescription('❌ Impossible de récupérer les données XP pour cet utilisateur.')
+            .setFooter({ text: `Informations sur ${user.tag} • Page XP` })
+            .setTimestamp();
+        
+        return embed;
+    }
+}
+
+// Page 3: Réseaux sociaux
+function createSocialPage(member, color, viewerId = null) {
+    const user = member.user;
+    const isOwnProfile = viewerId === user.id;
+    
+    // Lire les données sociales depuis le fichier JSON
+    const socialsPath = path.join(process.cwd(), 'json', 'socials.json');
+    let socialData = {};
+    
+    try {
+        if (fs.existsSync(socialsPath)) {
+            const data = fs.readFileSync(socialsPath, 'utf8');
+            const allSocials = JSON.parse(data);
+            socialData = allSocials[user.id] || {};
+        }
+    } catch (error) {
+        console.error('❌ [SOCIAL] Erreur lors de la lecture des données:', error);
+    }
+    
+    // Configuration des réseaux sociaux supportés
+    const supportedNetworks = {
+        twitter: { emoji: '🐦', name: 'Twitter' },
+        instagram: { emoji: '📸', name: 'Instagram' },
+        twitch: { emoji: '🎮', name: 'Twitch' },
+        github: { emoji: '💻', name: 'GitHub' },
+        youtube: { emoji: '📺', name: 'YouTube' },
+        tiktok: { emoji: '🎵', name: 'TikTok' },
+        discord: { emoji: '💬', name: 'Discord' },
+        linkedin: { emoji: '💼', name: 'LinkedIn' }
+    };
+    
+    const embed = new EmbedBuilder()
+        .setColor('#9b59b6') // Couleur violette comme demandé
+        .setTitle(`🌐 Réseaux sociaux de ${user.username}`)
+        .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }));
+    
+    // Créer la description avec les réseaux
+    let description = '';
+    
+    for (const [networkKey, networkConfig] of Object.entries(supportedNetworks)) {
+        const socialDataNetwork = socialData[networkKey];
+        
+        if (socialDataNetwork && (isOwnProfile || socialDataNetwork.privacy === 'public')) {
+            const privacyText = socialDataNetwork.privacy === 'private' ? ' (Privé)' : ' (Public)';
+            description += `${networkConfig.emoji} **${networkConfig.name}** : @${socialDataNetwork.username}${isOwnProfile ? privacyText : ''}\n`;
+        } else {
+            description += `${networkConfig.emoji} **${networkConfig.name}** : Aucun\n`;
+        }
+    }
+    
+    embed.setDescription(description);
+    embed.setFooter({ text: 'Utilise /social panel pour configurer tes réseaux' });
+    
+    return embed;
+}
+
+// Fonction pour créer les boutons de navigation
+function createUserInfoButtons(currentPage, userId) {
+    const personButton = new ButtonBuilder()
+        .setCustomId(`userinfo_person_${userId}`)
+        .setLabel('👤 Personne')
+        .setStyle(currentPage === 'person' ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    const xpButton = new ButtonBuilder()
+        .setCustomId(`userinfo_xp_${userId}`)
+        .setLabel('⭐ XP')
+        .setStyle(currentPage === 'xp' ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    const socialButton = new ButtonBuilder()
+        .setCustomId(`userinfo_social_${userId}`)
+        .setLabel('🌐 Réseaux sociaux')
+        .setStyle(currentPage === 'social' ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    return [new ActionRowBuilder().addComponents(personButton, xpButton, socialButton)];
+}
+
+// Fonctions utilitaires
+function getTimeAgo(date) {
+    // Formatage de la date complète avec l'heure
+    const options = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Paris'
+    };
+    const fullDate = date.toLocaleDateString('fr-FR', options);
+    
+    // Calcul du temps relatif
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+    
+    let relativeTime;
+    if (diffYears > 0) {
+        const remainingMonths = Math.floor((diffDays % 365) / 30);
+        relativeTime = `il y a ${diffYears} an${diffYears > 1 ? 's' : ''}${remainingMonths > 0 ? ` et ${remainingMonths} mois` : ''}`;
+    } else if (diffMonths > 0) {
+        const remainingDays = diffDays % 30;
+        relativeTime = `il y a ${diffMonths} mois${remainingDays > 0 ? ` et ${remainingDays} jour${remainingDays > 1 ? 's' : ''}` : ''}`;
+    } else if (diffDays > 0) {
+        relativeTime = `il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+    } else {
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        relativeTime = `il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
+    }
+    
+    // Retourner la date complète avec le temps relatif
+    return `${fullDate}\n(${relativeTime})`;
+}
+
+function getStatusText(status) {
+    switch (status) {
+        case 'online': return '🟢 En ligne';
+        case 'idle': return '🌙 Inactif';
+        case 'dnd': return '⛔ Ne pas déranger';
+        case 'offline':
+        default: return '⚫ Hors ligne';
+    }
+}
+
+function getActivityText(activities) {
+    if (!activities || activities.length === 0) {
+        return 'Aucune activité';
+    }
+    
+    const activity = activities[0];
+    switch (activity.type) {
+        case 0: return `🎮 Joue à ${activity.name}`;
+        case 1: return `📺 Regarde ${activity.name}`;
+        case 2: return `🎵 Écoute ${activity.name}`;
+        case 3: return `📺 Stream ${activity.name}`;
+        case 5: return `🏆 En compétition sur ${activity.name}`;
+        default: return activity.name || 'Activité inconnue';
+    }
 }

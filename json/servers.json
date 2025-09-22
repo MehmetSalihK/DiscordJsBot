@@ -47,6 +47,21 @@
     "autoRole": {
       "active": true,
       "roles": []
+    },
+    "xpSystem": {
+      "xpLogs": {
+        "logChannelId": "1419610379553734726"
+      },
+      "voiceLogs": {
+        "logChannelId": "1419610379553734726"
+      }
+    },
+    "logs": {
+      "active": true,
+      "logChannelId": "1419610379553734726"
+    },
+    "reactionRoles": {
+      "logs": true
     }
   },
   "807934589380722729": {

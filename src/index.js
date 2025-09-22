@@ -3,7 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { config, assertConfig } from './config.js';
-import { logger } from './utils/logger.js';
+import logger from './utils/logger.js';
+import { initializeErrorFiltering } from './utils/errorFilter.js';
+import { displayStartupHeader, displayStartupFooter, displayDebugInfo } from './utils/startup.js';
 import { loadPrefixCommands, loadSlashCommands } from './loaders/commandLoader.js';
 import { getPrefix, setGuildConfig } from './store/configStore.js';
 import { handleHelpButton, handleLogsButton, handleServerInfoButton, handleXPButton, handleXPModal } from './handlers/buttonHandlers.js';
@@ -11,10 +13,17 @@ import QueueManager from '../music/queueManager.js';
 import { MusicButtonHandler } from '../music/buttonHandler.js';
 import reactionRolesConfig from '../data/reactionroles.json' with { type: "json" };
 
+// Initialiser le système de filtrage des erreurs
+initializeErrorFiltering();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
+  // Afficher le header de démarrage
+  displayStartupHeader();
+  displayDebugInfo();
+  
   try {
     assertConfig();
   } catch (e) {
@@ -140,8 +149,27 @@ async function main() {
     if (!roleMapping) return;
 
     try {
-      await member.roles.add(roleMapping.id_role);
-      logger.info(`✅ Rôle ajouté à ${user.tag}`);
+      const role = guild.roles.cache.get(roleMapping.id_role);
+      if (role && !member.roles.cache.has(role.id)) {
+        await member.roles.add(roleMapping.id_role);
+        logger.info(`✅ Reaction Role: Rôle ${role.name} ajouté à ${user.tag} (Message: ${reaction.message.id}, Emoji: ${reaction.emoji.toString()})`);
+        
+        // Envoyer un log dans le canal de logs si configuré
+        const { getGuildConfig } = await import('./store/configStore.js');
+        const { createSuccessEmbed } = await import('./utils/embeds.js');
+        
+        const guildConfig = getGuildConfig(reaction.message.guild.id) || {};
+        if (guildConfig.reactionRoles?.logs !== false && guildConfig.logChannelId) {
+          const logChannel = reaction.message.guild.channels.cache.get(guildConfig.logChannelId);
+          if (logChannel) {
+            const logEmbed = createSuccessEmbed(
+              'Reaction Role - Rôle ajouté',
+              `**Utilisateur:** ${user}\n**Rôle:** ${role}\n**Message:** [Aller au message](${reaction.message.url})\n**Emoji:** ${reaction.emoji.toString()}\n**Description:** ${roleMapping.description || 'Aucune'}`
+            );
+            await logChannel.send({ embeds: [logEmbed] });
+          }
+        }
+      }
     } catch (error) {
       logger.error('❌ Impossible d\'ajouter le rôle:', error);
     }
@@ -170,8 +198,27 @@ async function main() {
     if (!roleMapping) return;
 
     try {
-      await member.roles.remove(roleMapping.id_role);
-      logger.info(`❌ Rôle retiré à ${user.tag}`);
+      const role = guild.roles.cache.get(roleMapping.id_role);
+      if (role && member.roles.cache.has(role.id)) {
+        await member.roles.remove(roleMapping.id_role);
+        logger.info(`❌ Reaction Role: Rôle ${role.name} retiré à ${user.tag} (Message: ${reaction.message.id}, Emoji: ${reaction.emoji.toString()})`);
+        
+        // Envoyer un log dans le canal de logs si configuré
+        const { getGuildConfig } = await import('./store/configStore.js');
+        const { createErrorEmbed } = await import('./utils/embeds.js');
+        
+        const guildConfig = getGuildConfig(reaction.message.guild.id) || {};
+        if (guildConfig.reactionRoles?.logs !== false && guildConfig.logChannelId) {
+          const logChannel = reaction.message.guild.channels.cache.get(guildConfig.logChannelId);
+          if (logChannel) {
+            const logEmbed = createErrorEmbed(
+              'Reaction Role - Rôle retiré',
+              `**Utilisateur:** ${user}\n**Rôle:** ${role}\n**Message:** [Aller au message](${reaction.message.url})\n**Emoji:** ${reaction.emoji.toString()}`
+            );
+            await logChannel.send({ embeds: [logEmbed] });
+          }
+        }
+      }
     } catch (error) {
       logger.error('❌ Impossible de retirer le rôle:', error);
     }

@@ -48,7 +48,7 @@ export function setUserData(guildId, userId, data) {
   return map[guildId][userId];
 }
 
-function getRequiredXPForLevel(guildId, level) {
+export function getRequiredXPForLevel(guildId, level) {
   const conf = getGuildConfig(guildId);
   const lvls = conf?.xpSystem?.levels || {};
   if (lvls[String(level)]) return lvls[String(level)];

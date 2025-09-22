@@ -3,6 +3,7 @@ import { readdirSync, statSync } from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import dotenv from 'dotenv';
+import logger from '../src/utils/logger.js';
 
 dotenv.config();
 
@@ -41,7 +42,7 @@ async function register() {
   const guildId = process.env.GUILD_ID || null;
 
   if (!token || !clientId) {
-    console.error('[ERREUR] DISCORD_TOKEN ou CLIENT_ID manquant.');
+    logger.error('DISCORD_TOKEN ou CLIENT_ID manquant.');
     process.exit(1);
   }
 
@@ -49,17 +50,17 @@ async function register() {
   const body = await loadSlashJSON();
 
   try {
-    console.log(`[INFO] Enregistrement de ${body.length} commande(s) slash...`);
+    logger.info(`Enregistrement de ${body.length} commande(s) slash...`);
     if (guildId) {
       await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body });
-      console.log('[SUCCÈS] Commandes slash enregistrées au niveau serveur (guild).');
+      logger.success('Commandes slash enregistrées au niveau serveur (guild).');
     } else {
       await rest.put(Routes.applicationCommands(clientId), { body });
-      console.log('[SUCCÈS] Commandes slash enregistrées au niveau global.');
-      console.log('[INFO] Note: la propagation globale peut prendre jusqu\'à 1h. Utilisez GUILD_ID pour des tests rapides.');
+      logger.success('Commandes slash enregistrées au niveau global.');
+      logger.info('Note: la propagation globale peut prendre jusqu\'à 1h. Utilisez GUILD_ID pour des tests rapides.');
     }
   } catch (error) {
-    console.error('[ERREUR] Échec d\'enregistrement des commandes slash:', error);
+    logger.error('Échec d\'enregistrement des commandes slash:', error);
   }
 }
 
