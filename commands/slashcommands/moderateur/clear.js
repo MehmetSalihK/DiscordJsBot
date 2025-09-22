@@ -11,10 +11,10 @@ export default {
   async execute(interaction) {
     try {
       if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageMessages)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission de gérer les messages.")], flags: 64 // MessageFlags.Ephemeral });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission de gérer les messages.")], flags: 64 }); // MessageFlags.Ephemeral
       }
       if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Je n'ai pas la permission de gérer les messages.")], flags: 64 // MessageFlags.Ephemeral });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Je n'ai pas la permission de gérer les messages.")], flags: 64 }); // MessageFlags.Ephemeral
       }
 
       const count = interaction.options.getInteger('nombre', true);
@@ -27,7 +27,7 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /clear:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la suppression des messages.')] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la suppression des messages.')], flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la suppression des messages.')], flags: 64 }); // MessageFlags.Ephemeral
     }
   },
 };

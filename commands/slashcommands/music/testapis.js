@@ -106,7 +106,7 @@ export async function execute(interaction) {
         
         embed.setDescription(description);
         
-        await interaction.reply({ embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         
     } catch (error) {
         console.error('Erreur lors du test des APIs:', error);
@@ -116,9 +116,10 @@ export async function execute(interaction) {
             .setDescription('Une erreur s\'est produite lors du test des APIs.')
             .setTimestamp();
         
-        await interaction.reply({ embeds: [errorEmbed], flags: 64 // MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [errorEmbed], flags: 64 }); // MessageFlags.Ephemeral
     }
 }
+
 
 
 

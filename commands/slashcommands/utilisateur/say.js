@@ -14,10 +14,11 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /say:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply("Une erreur est survenue lors de l\'envoi du message.");
-      return interaction.reply({ content: "Une erreur est survenue lors de l'envoi du message.", flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ content: "Une erreur est survenue lors de l'envoi du message.", flags: 64 }); // MessageFlags.Ephemeral
     }
   },
 };
+
 
 
 

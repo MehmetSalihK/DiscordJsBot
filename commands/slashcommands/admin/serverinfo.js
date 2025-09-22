@@ -34,10 +34,11 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /serverinfo:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la récupération des informations du serveur.")] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la récupération des informations du serveur.")], flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la récupération des informations du serveur.")], flags: 64 }); // MessageFlags.Ephemeral
     }
   },
 };
+
 
 
 

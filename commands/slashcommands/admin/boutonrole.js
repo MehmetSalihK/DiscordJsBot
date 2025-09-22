@@ -174,17 +174,16 @@ export default {
                 default:
                     await interaction.reply({
                         embeds: [createErrorEmbed('Sous-commande non reconnue.')],
-                        flags: 64 // MessageFlags.Ephemeral
-                    });
+                        flags: 64 }); // MessageFlags.Ephemeral
             }
         } catch (error) {
             console.error('Erreur dans la commande boutonrole:', error);
             const errorEmbed = createErrorEmbed('Une erreur inattendue est survenue.');
             
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ embeds: [errorEmbed], flags: 64 // MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], flags: 64 }); // MessageFlags.Ephemeral
             } else {
-                await interaction.followUp({ embeds: [errorEmbed], flags: 64 // MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], flags: 64 }); // MessageFlags.Ephemeral
             }
         }
     }
@@ -202,8 +201,7 @@ async function handleCreatePanel(interaction) {
     if (!hexRegex.test(couleur)) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Format de couleur invalide. Utilisez le format hex (#RRGGBB).')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Créer la configuration du panneau
@@ -230,7 +228,7 @@ async function handleCreatePanel(interaction) {
         `Utilisez \`/boutonrole ajouter-bouton\` pour ajouter des boutons à ce panneau.`
     );
 
-    await interaction.reply({ embeds: [successEmbed], flags: 64 // MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [successEmbed], flags: 64 }); // MessageFlags.Ephemeral
 }
 
 async function handleAddButton(interaction) {
@@ -245,16 +243,14 @@ async function handleAddButton(interaction) {
     if (!panel) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Panneau introuvable. Vérifiez l\'ID du panneau.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Vérifier si le rôle peut être géré par le bot
     if (role.position >= interaction.guild.members.me.roles.highest.position) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Je ne peux pas gérer ce rôle car il est plus haut que mon rôle le plus élevé.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Vérifier si le rôle est déjà dans le panneau
@@ -262,16 +258,14 @@ async function handleAddButton(interaction) {
     if (existingButton) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Ce rôle est déjà configuré dans ce panneau.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Vérifier la limite de boutons
     if (panel.buttons.length >= 25) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Maximum 25 boutons par panneau.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Ajouter le bouton
@@ -294,7 +288,7 @@ async function handleAddButton(interaction) {
         `\nUtilisez \`/boutonrole publier\` pour publier le panneau.`
     );
 
-    await interaction.reply({ embeds: [successEmbed], flags: 64 // MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [successEmbed], flags: 64 }); // MessageFlags.Ephemeral
 }
 
 async function handlePublishPanel(interaction) {
@@ -306,16 +300,14 @@ async function handlePublishPanel(interaction) {
     if (!panel) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Panneau introuvable. Vérifiez l\'ID du panneau.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Vérifier s'il y a des boutons
     if (panel.buttons.length === 0) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Ce panneau n\'a aucun bouton. Ajoutez des boutons avant de le publier.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Utiliser le salon spécifié ou celui configuré dans le panneau
@@ -323,8 +315,7 @@ async function handlePublishPanel(interaction) {
     if (!targetChannel) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Salon introuvable.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Vérifier les permissions du bot dans le salon
@@ -332,8 +323,7 @@ async function handlePublishPanel(interaction) {
     if (!botPermissions.has(['SendMessages', 'EmbedLinks'])) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Je n\'ai pas les permissions pour envoyer des messages dans ce salon.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     try {
@@ -358,14 +348,13 @@ async function handlePublishPanel(interaction) {
             `**Nombre de boutons:** ${panel.buttons.length}`
         );
 
-        await interaction.reply({ embeds: [successEmbed], flags: 64 // MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [successEmbed], flags: 64 }); // MessageFlags.Ephemeral
 
     } catch (error) {
         console.error('Erreur lors de la publication du panneau:', error);
         await interaction.reply({
             embeds: [createErrorEmbed('Erreur lors de la publication du panneau.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 }
 
@@ -376,8 +365,7 @@ async function handleListPanels(interaction) {
     if (panelEntries.length === 0) {
         return await interaction.reply({
             embeds: [createInfoEmbed('Aucun panneau de rôles configuré sur ce serveur.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     const embed = new EmbedBuilder()
@@ -404,7 +392,7 @@ async function handleListPanels(interaction) {
 
     embed.setDescription(description);
 
-    await interaction.reply({ embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
 }
 
 async function handleDeletePanel(interaction) {
@@ -415,8 +403,7 @@ async function handleDeletePanel(interaction) {
     if (!panel) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Panneau introuvable. Vérifiez l\'ID du panneau.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Supprimer le panneau
@@ -427,7 +414,7 @@ async function handleDeletePanel(interaction) {
         `⚠️ **Note:** Le message publié dans le salon n'a pas été supprimé automatiquement.`
     );
 
-    await interaction.reply({ embeds: [successEmbed], flags: 64 // MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [successEmbed], flags: 64 }); // MessageFlags.Ephemeral
 }
 
 async function handlePreviewPanel(interaction) {
@@ -438,15 +425,13 @@ async function handlePreviewPanel(interaction) {
     if (!panel) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Panneau introuvable. Vérifiez l\'ID du panneau.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     if (panel.buttons.length === 0) {
         return await interaction.reply({
             embeds: [createErrorEmbed('Ce panneau n\'a aucun bouton configuré.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     try {
@@ -464,15 +449,13 @@ async function handlePreviewPanel(interaction) {
             content: '👀 **Aperçu du panneau:**',
             embeds: [embed],
             components: buttons,
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
 
     } catch (error) {
         console.error('Erreur lors de l\'aperçu du panneau:', error);
         await interaction.reply({
             embeds: [createErrorEmbed('Erreur lors de la génération de l\'aperçu.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 }
 
@@ -499,6 +482,7 @@ function createInfoEmbed(message) {
         .setDescription(message)
         .setTimestamp();
 }
+
 
 
 

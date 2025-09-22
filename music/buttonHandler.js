@@ -1,4 +1,4 @@
-import { MusicEmbedBuilder } from './embedBuilder.js';
+﻿import { MusicEmbedBuilder } from './embedBuilder.js';
 
 export class MusicButtonHandler {
     constructor(client) {
@@ -15,14 +15,13 @@ export class MusicButtonHandler {
                 return await interaction.reply(options);
             }
         } catch (error) {
-            console.error('Erreur lors de la réponse à l\'interaction:', error);
+            console.error('Erreur lors de la réponse Ã  l\'interaction:', error);
             // Tentative de fallback avec followUp si possible
             if (!interaction.replied && !interaction.deferred) {
                 try {
                     return await interaction.reply({ 
                         content: 'Une erreur est survenue lors du traitement de votre demande.', 
-                        flags: 64 // MessageFlags.Ephemeral 
-                    });
+                        flags: 64 }); // MessageFlags.Ephemeral
                 } catch (fallbackError) {
                     console.error('Erreur lors du fallback de réponse:', fallbackError);
                 }
@@ -35,22 +34,22 @@ export class MusicButtonHandler {
 
         const customId = interaction.customId;
         
-        console.log('🔘 [BUTTON_INTERACTION] Interaction de bouton reçue');
-        console.log(`   🆔 Custom ID: ${customId}`);
-        console.log(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-        console.log(`   🏠 Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
-        console.log(`   📍 Canal: ${interaction.channel.name} (${interaction.channel.id})`);
+        console.log('ðŸ”˜ [BUTTON_INTERACTION] Interaction de bouton reçue');
+        console.log(`   ðŸ†” Custom ID: ${customId}`);
+        console.log(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+        console.log(`   ðŸ  Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
+        console.log(`   ðŸ“ Canal: ${interaction.channel.name} (${interaction.channel.id})`);
         
         // Vérifier si c'est un bouton de musique
         if (!customId.startsWith('music_') && !customId.startsWith('queue_') && !customId.startsWith('search_')) {
-            console.log(`   ❌ Bouton non-musical ignoré`);
+            console.log(`   âŒ Bouton non-musical ignoré`);
             return;
         }
 
         const queue = this.client.queueManager.player.nodes.get(interaction.guild.id);
         console.log(`   🎵 Queue trouvée: ${queue ? 'Oui' : 'Non'}`);
         if (queue) {
-            console.log(`   📊 État de la queue: ${queue.tracks.size} tracks, en cours: ${queue.node.isPlaying() ? 'Oui' : 'Non'}`);
+            console.log(`   ðŸ“Š Ã‰tat de la queue: ${queue.tracks.size} tracks, en cours: ${queue.node.isPlaying() ? 'Oui' : 'Non'}`);
         }
 
         try {
@@ -111,111 +110,103 @@ export class MusicButtonHandler {
                     break;
             }
         } catch (error) {
-            console.error('❌ [BUTTON_ERROR] Erreur lors du traitement du bouton:');
-            console.error(`   🏷️ Bouton: ${customId}`);
-            console.error(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-            console.error(`   🏠 Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
-            console.error(`   📍 Canal: ${interaction.channel?.name || 'Inconnu'} (${interaction.channel?.id || 'N/A'})`);
-            console.error(`   ⚠️ Erreur:`, error);
+            console.error('âŒ [BUTTON_ERROR] Erreur lors du traitement du bouton:');
+            console.error(`   ðŸ·ï¸ Bouton: ${customId}`);
+            console.error(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+            console.error(`   ðŸ  Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
+            console.error(`   ðŸ“ Canal: ${interaction.channel?.name || 'Inconnu'} (${interaction.channel?.id || 'N/A'})`);
+            console.error(`   âš ï¸ Erreur:`, error);
             
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     embeds: [MusicEmbedBuilder.createErrorEmbed('Une erreur est survenue lors du traitement de votre demande.')],
-                    flags: 64 // MessageFlags.Ephemeral
-                });
+                    flags: 64 }); // MessageFlags.Ephemeral
             }
         }
     }
 
     async handlePlayPause(interaction, queue) {
-        console.log('⏯️ [PLAY_PAUSE] Action play/pause demandée');
+        console.log('â¯ï¸ [PLAY_PAUSE] Action play/pause demandée');
         
         if (!queue) {
-            console.log('   ❌ Aucune queue trouvée');
+            console.log('   âŒ Aucune queue trouvée');
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const wasPaused = queue.node.isPaused();
-        console.log(`   📊 État actuel: ${wasPaused ? 'En pause' : 'En lecture'}`);
+        console.log(`   ðŸ“Š Ã‰tat actuel: ${wasPaused ? 'En pause' : 'En lecture'}`);
         console.log(`   🎵 Track actuel: ${queue.currentTrack?.title || 'Aucun'}`);
 
         if (wasPaused) {
             queue.node.resume();
-            console.log('   ▶️ Lecture reprise');
+            console.log('   ▶️ Lecture reprise');
             await this.safeReply(interaction, {
-                embeds: [MusicEmbedBuilder.createSuccessEmbed('▶️ Lecture reprise.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                embeds: [MusicEmbedBuilder.createSuccessEmbed('▶️ Lecture reprise.')],
+                flags: 64 }); // MessageFlags.Ephemeral
         } else {
             queue.node.pause();
-            console.log('   ⏸️ Lecture mise en pause');
+            console.log('   â¸ï¸ Lecture mise en pause');
             await this.safeReply(interaction, {
-                embeds: [MusicEmbedBuilder.createSuccessEmbed('⏸️ Lecture mise en pause.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                embeds: [MusicEmbedBuilder.createSuccessEmbed('â¸ï¸ Lecture mise en pause.')],
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
-        // Mettre à jour l'embed principal
+        // Mettre Ã  jour l'embed principal
         await this.updateNowPlayingEmbed(interaction, queue);
-        console.log('   ✅ Embed mis à jour');
+        console.log('   ✅ Embed mis Ã  jour');
     }
 
     async handleSkip(interaction, queue) {
-        console.log('⏭️ [SKIP] Action skip demandée');
+        console.log('â­ï¸ [SKIP] Action skip demandée');
         
         if (!queue || !queue.currentTrack) {
-            console.log('   ❌ Aucune queue ou track actuel trouvé');
+            console.log('   âŒ Aucune queue ou track actuel trouvé');
             return this.safeReply(interaction, {
-                embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique à passer.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique Ã  passer.')],
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const currentTrack = queue.currentTrack;
-        console.log(`   🎵 Track à passer: ${currentTrack.title}`);
-        console.log(`   📊 Tracks restants: ${queue.tracks.size}`);
+        console.log(`   🎵 Track Ã  passer: ${currentTrack.title}`);
+        console.log(`   ðŸ“Š Tracks restants: ${queue.tracks.size}`);
         
         queue.node.skip();
         console.log('   ✅ Track passé avec succès');
         
         await this.safeReply(interaction, {
-            embeds: [MusicEmbedBuilder.createSuccessEmbed(`⏭️ **${currentTrack.title}** a été passée.`)],
+            embeds: [MusicEmbedBuilder.createSuccessEmbed(`â­ï¸ **${currentTrack.title}** a été passée.`)],
             flags: 64 // MessageFlags.Ephemeral
         });
     }
 
     async handleStop(interaction, queue) {
-        console.log('⏹️ [STOP] Action stop demandée');
+        console.log('â¹ï¸ [STOP] Action stop demandée');
         
         if (!queue) {
-            console.log('   ❌ Aucune queue trouvée');
+            console.log('   âŒ Aucune queue trouvée');
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         console.log(`   🎵 Track actuel: ${queue.currentTrack?.title || 'Aucun'}`);
-        console.log(`   📊 Tracks dans la queue: ${queue.tracks.size}`);
+        console.log(`   ðŸ“Š Tracks dans la queue: ${queue.tracks.size}`);
         
         queue.node.stop();
         console.log('   ✅ Lecture arrêtée et queue vidée');
         
         await this.safeReply(interaction, {
-            embeds: [MusicEmbedBuilder.createSuccessEmbed('⏹️ Lecture arrêtée et file d\'attente vidée.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            embeds: [MusicEmbedBuilder.createSuccessEmbed('â¹ï¸ Lecture arrêtée et file d\'attente vidée.')],
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleLoop(interaction, queue) {
         if (!queue) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const modes = [0, 1, 2]; // Off, Track, Queue
@@ -226,7 +217,7 @@ export class MusicButtonHandler {
         
         const modeText = MusicEmbedBuilder.getLoopModeText(nextMode);
         await this.safeReply(interaction, {
-            embeds: [MusicEmbedBuilder.createSuccessEmbed(`🔁 Mode de répétition : **${modeText}**`)],
+            embeds: [MusicEmbedBuilder.createSuccessEmbed(`ðŸ” Mode de répétition : **${modeText}**`)],
             flags: 64 // MessageFlags.Ephemeral
         });
 
@@ -237,8 +228,7 @@ export class MusicButtonHandler {
         if (!queue) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const currentVolume = queue.node.volume;
@@ -247,7 +237,7 @@ export class MusicButtonHandler {
         queue.node.setVolume(newVolume);
         
         await this.safeReply(interaction, {
-            embeds: [MusicEmbedBuilder.createSuccessEmbed(`🔊 Volume : **${newVolume}%**`)],
+            embeds: [MusicEmbedBuilder.createSuccessEmbed(`ðŸ”Š Volume : **${newVolume}%**`)],
             flags: 64 // MessageFlags.Ephemeral
         });
 
@@ -258,8 +248,7 @@ export class MusicButtonHandler {
         if (!queue) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const currentVolume = queue.node.volume;
@@ -268,7 +257,7 @@ export class MusicButtonHandler {
         queue.node.setVolume(newVolume);
         
         await this.safeReply(interaction, {
-            embeds: [MusicEmbedBuilder.createSuccessEmbed(`🔉 Volume : **${newVolume}%**`)],
+            embeds: [MusicEmbedBuilder.createSuccessEmbed(`ðŸ”‰ Volume : **${newVolume}%**`)],
             flags: 64 // MessageFlags.Ephemeral
         });
 
@@ -279,8 +268,7 @@ export class MusicButtonHandler {
         if (!queue || (!queue.currentTrack && queue.tracks.data.length === 0)) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique dans la file d\'attente.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const embed = MusicEmbedBuilder.createQueueEmbed(queue, 1);
@@ -290,40 +278,35 @@ export class MusicButtonHandler {
         await this.safeReply(interaction, { 
             embeds: [embed], 
             components: buttons, 
-            flags: 64 // MessageFlags.Ephemeral 
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleShuffle(interaction, queue) {
         if (!queue || queue.tracks.data.length === 0) {
             return this.safeReply(interaction, {
-                embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique dans la file d\'attente à mélanger.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique dans la file d\'attente Ã  mélanger.')],
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.tracks.shuffle();
         
         await this.safeReply(interaction, {
-            embeds: [MusicEmbedBuilder.createSuccessEmbed('🔀 File d\'attente mélangée.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            embeds: [MusicEmbedBuilder.createSuccessEmbed('ðŸ”€ File d\'attente mélangée.')],
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleDisconnect(interaction, queue) {
         if (!queue) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Le bot n\'est pas connecté.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.node.stop();
         
         await this.safeReply(interaction, {
-            embeds: [MusicEmbedBuilder.createSuccessEmbed('👋 Bot déconnecté.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            embeds: [MusicEmbedBuilder.createSuccessEmbed('ðŸ‘‹ Bot déconnecté.')],
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleQueuePage(interaction, queue, customId) {
@@ -335,16 +318,14 @@ export class MusicButtonHandler {
         await this.safeReply(interaction, { 
             embeds: [embed], 
             components: buttons, 
-            flags: 64 // MessageFlags.Ephemeral 
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleQueueRefresh(interaction, queue) {
         if (!queue || (!queue.currentTrack && queue.tracks.data.length === 0)) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Aucune musique dans la file d\'attente.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const embed = MusicEmbedBuilder.createQueueEmbed(queue, 1);
@@ -354,8 +335,7 @@ export class MusicButtonHandler {
         await this.safeReply(interaction, { 
             embeds: [embed], 
             components: buttons, 
-            flags: 64 // MessageFlags.Ephemeral 
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleSearchSelect(interaction, customId) {
@@ -366,16 +346,14 @@ export class MusicButtonHandler {
         if (!session) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Session de recherche expirée.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const selectedTrack = session.results[index];
         if (!selectedTrack) {
             return this.safeReply(interaction, {
                 embeds: [MusicEmbedBuilder.createErrorEmbed('Sélection invalide.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         // Jouer la musique sélectionnée
@@ -396,8 +374,7 @@ export class MusicButtonHandler {
         
         await this.safeReply(interaction, {
             embeds: [MusicEmbedBuilder.createSuccessEmbed('🚫 Recherche annulée.')],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async updateNowPlayingEmbed(interaction, queue) {
@@ -407,7 +384,7 @@ export class MusicButtonHandler {
             const embed = MusicEmbedBuilder.createNowPlayingEmbed(queue.currentTrack, queue);
             const buttons = MusicEmbedBuilder.createPlayerButtons(queue);
 
-            // Trouver le message "Now Playing" dans le canal et le mettre à jour
+            // Trouver le message "Now Playing" dans le canal et le mettre Ã  jour
             const messages = await interaction.channel.messages.fetch({ limit: 10 });
             const nowPlayingMessage = messages.find(msg => 
                 msg.author.id === this.client.user.id && 
@@ -422,7 +399,7 @@ export class MusicButtonHandler {
                 });
             }
         } catch (error) {
-            console.error('Erreur lors de la mise à jour de l\'embed:', error);
+            console.error('Erreur lors de la mise Ã  jour de l\'embed:', error);
         }
     }
 
@@ -440,6 +417,9 @@ export class MusicButtonHandler {
         }, 30000);
     }
 }
+
+
+
 
 
 

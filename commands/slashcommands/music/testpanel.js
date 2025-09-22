@@ -24,8 +24,7 @@ export default {
             if (!interaction.member.voice.channel) {
                 return await interaction.reply({
                     content: '❌ Vous devez être dans un canal vocal pour utiliser cette commande.',
-                    flags: 64 // MessageFlags.Ephemeral
-                });
+                    flags: 64 }); // MessageFlags.Ephemeral
             }
 
             await interaction.deferReply();
@@ -70,6 +69,7 @@ export default {
         }
     }
 };
+
 
 
 

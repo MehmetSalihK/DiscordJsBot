@@ -42,7 +42,7 @@ export default {
       if (sub === 'set') {
         const ch = interaction.options.getChannel('salon', true);
         if (!ch || ch.type !== ChannelType.GuildText) {
-          return interaction.reply({ embeds: [createErrorEmbed('Salon invalide', 'Veuillez choisir un salon texte du serveur.')], flags: 64 // MessageFlags.Ephemeral });
+          return interaction.reply({ embeds: [createErrorEmbed('Salon invalide', 'Veuillez choisir un salon texte du serveur.')], flags: 64 }); // MessageFlags.Ephemeral
         }
         x.voiceLogs = { ...(x.voiceLogs || {}), logChannelId: ch.id };
         setGuildConfig(interaction.guildId, { xpSystem: x });
@@ -54,7 +54,7 @@ export default {
         const current = x.voiceLogs?.active !== false;
         const wantActive = (sub === 'toggle') ? !current : (sub === 'on');
         if (wantActive && !x.voiceLogs?.logChannelId) {
-          return interaction.reply({ embeds: [createErrorEmbed('Aucun salon configuré', 'Veuillez d\'abord définir un salon pour les logs vocaux avec `/voicelogs set #salon`.')], flags: 64 // MessageFlags.Ephemeral });
+          return interaction.reply({ embeds: [createErrorEmbed('Aucun salon configuré', 'Veuillez d\'abord définir un salon pour les logs vocaux avec `/voicelogs set #salon`.')], flags: 64 }); // MessageFlags.Ephemeral
         }
         x.voiceLogs = { ...(x.voiceLogs || {}), active: wantActive };
         setGuildConfig(interaction.guildId, { xpSystem: x });
@@ -67,6 +67,7 @@ export default {
     }
   },
 };
+
 
 
 

@@ -17,7 +17,7 @@ export async function execute(interaction) {
                 .setDescription('Le bot n\'est pas connecté à un salon vocal.')
                 .setTimestamp();
             
-            return await interaction.reply({ embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
         
         // Désactiver la sourdine auto
@@ -50,9 +50,10 @@ export async function execute(interaction) {
             .setDescription('Une erreur s\'est produite lors de la désactivation de la sourdine.')
             .setTimestamp();
         
-        await interaction.reply({ embeds: [errorEmbed], flags: 64 // MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [errorEmbed], flags: 64 }); // MessageFlags.Ephemeral
     }
 }
+
 
 
 

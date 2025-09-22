@@ -11,19 +11,20 @@ export default {
   async execute(interaction) {
     try {
       if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
-        return interaction.reply({ content: "Vous n'avez pas la permission de modifier le préfixe (Manage Guild requis).", flags: 64 // MessageFlags.Ephemeral });
+        return interaction.reply({ content: "Vous n'avez pas la permission de modifier le préfixe (Manage Guild requis).", flags: 64 }); // MessageFlags.Ephemeral
       }
       const newPrefix = interaction.options.getString('prefixe', true);
       setPrefix(interaction.guild.id, newPrefix);
       const effective = getPrefix(interaction.guild.id, config.prefix);
-      return interaction.reply({ content: `Le préfixe a été mis à jour: \`${effective}\``, flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ content: `Le préfixe a été mis à jour: \`${effective}\``, flags: 64 }); // MessageFlags.Ephemeral
     } catch (error) {
       console.error('[ERREUR] Slash /setprefix:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply("Une erreur est survenue lors de la mise à jour du préfixe.");
-      return interaction.reply({ content: "Une erreur est survenue lors de la mise à jour du préfixe.", flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ content: "Une erreur est survenue lors de la mise à jour du préfixe.", flags: 64 }); // MessageFlags.Ephemeral
     }
   },
 };
+
 
 
 

@@ -52,7 +52,7 @@ export default {
       if (sub === 'setlog') {
         const ch = interaction.options.getChannel('salon', true);
         if (!ch || ch.type !== ChannelType.GuildText) {
-          return interaction.reply({ embeds: [createErrorEmbed('Salon invalide', 'Veuillez choisir un salon texte du serveur.')], flags: 64 // MessageFlags.Ephemeral });
+          return interaction.reply({ embeds: [createErrorEmbed('Salon invalide', 'Veuillez choisir un salon texte du serveur.')], flags: 64 }); // MessageFlags.Ephemeral
         }
         x.xpLogs = { ...(x.xpLogs || {}), logChannelId: ch.id };
         setGuildConfig(interaction.guildId, { xpSystem: x });
@@ -66,7 +66,7 @@ export default {
 
       if (sub === 'enablelogs') {
         if (!x.xpLogs?.logChannelId) {
-          return interaction.reply({ embeds: [createErrorEmbed('Aucun salon configuré', 'Veuillez d\'abord définir un salon avec `/xpconfig setlog #salon`.')], flags: 64 // MessageFlags.Ephemeral });
+          return interaction.reply({ embeds: [createErrorEmbed('Aucun salon configuré', 'Veuillez d\'abord définir un salon avec `/xpconfig setlog #salon`.')], flags: 64 }); // MessageFlags.Ephemeral
         }
         x.xpLogs = { ...(x.xpLogs || {}), active: true };
         setGuildConfig(interaction.guildId, { xpSystem: x });
@@ -92,10 +92,11 @@ export default {
       }
     } catch (e) {
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', "Impossible d'exécuter la commande xpconfig.")] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Impossible d'exécuter la commande xpconfig.")], flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Impossible d'exécuter la commande xpconfig.")], flags: 64 }); // MessageFlags.Ephemeral
     }
   }
 };
+
 
 
 

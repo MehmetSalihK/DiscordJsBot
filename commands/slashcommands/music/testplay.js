@@ -27,7 +27,7 @@ export async function execute(interaction) {
                 .setTitle('Test de lecture')
                 .setDescription(diagnosticText)
                 .setTimestamp();
-            return await interaction.reply({ embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
         diagnosticText += `✅ Salon vocal: ${channel.name}\n`;
 
@@ -155,10 +155,11 @@ export async function execute(interaction) {
         if (interaction.replied) {
             await interaction.editReply({ embeds: [errorEmbed] });
         } else {
-            await interaction.reply({ embeds: [errorEmbed], flags: 64 // MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], flags: 64 }); // MessageFlags.Ephemeral
         }
     }
 }
+
 
 
 

@@ -12,21 +12,21 @@ export default {
   async execute(interaction) {
     try {
       if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.BanMembers)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission de bannir des membres.")], flags: 64 // MessageFlags.Ephemeral });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission de bannir des membres.")], flags: 64 }); // MessageFlags.Ephemeral
       }
       if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Je n'ai pas la permission de bannir des membres.")], flags: 64 // MessageFlags.Ephemeral });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Je n'ai pas la permission de bannir des membres.")], flags: 64 }); // MessageFlags.Ephemeral
       }
 
       const target = interaction.options.getUser('utilisateur', true);
       const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-      if (!member) return interaction.reply({ embeds: [createErrorEmbed('Introuvable', 'Utilisateur introuvable sur ce serveur.')], flags: 64 // MessageFlags.Ephemeral });
+      if (!member) return interaction.reply({ embeds: [createErrorEmbed('Introuvable', 'Utilisateur introuvable sur ce serveur.')], flags: 64 }); // MessageFlags.Ephemeral
 
       const authorMember = await interaction.guild.members.fetch(interaction.user.id);
       const authorHigherOrEqual = authorMember.roles.highest.comparePositionTo(member.roles.highest) <= 0 && interaction.guild.ownerId !== interaction.user.id;
-      if (authorHigherOrEqual) return interaction.reply({ embeds: [createErrorEmbed('Hiérarchie', 'Vous ne pouvez pas bannir un utilisateur avec un rôle supérieur ou égal au vôtre.')], flags: 64 // MessageFlags.Ephemeral });
+      if (authorHigherOrEqual) return interaction.reply({ embeds: [createErrorEmbed('Hiérarchie', 'Vous ne pouvez pas bannir un utilisateur avec un rôle supérieur ou égal au vôtre.')], flags: 64 }); // MessageFlags.Ephemeral
 
-      if (!member.bannable) return interaction.reply({ embeds: [createErrorEmbed('Impossible', "Je ne peux pas bannir cet utilisateur (rôle trop élevé ou permissions insuffisantes).")], flags: 64 // MessageFlags.Ephemeral });
+      if (!member.bannable) return interaction.reply({ embeds: [createErrorEmbed('Impossible', "Je ne peux pas bannir cet utilisateur (rôle trop élevé ou permissions insuffisantes).")], flags: 64 }); // MessageFlags.Ephemeral
 
       const reason = interaction.options.getString('raison') || 'Aucune raison fournie';
       await member.ban({ reason });
@@ -36,10 +36,11 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /ban:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la tentative de bannissement.')] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la tentative de bannissement.')], flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la tentative de bannissement.')], flags: 64 }); // MessageFlags.Ephemeral
     }
   },
 };
+
 
 
 

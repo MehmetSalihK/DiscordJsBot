@@ -20,11 +20,11 @@ export default {
         `A rejoint: ${joined}`,
         `Rôles: ${roles}`,
       ];
-      return interaction.reply({ content: `Informations de l'utilisateur:\n${lines.join('\n')}`, flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ content: `Informations de l'utilisateur:\n${lines.join('\n')}`, flags: 64 }); // MessageFlags.Ephemeral
     } catch (error) {
       console.error('[ERREUR] Slash /userinfo:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply("Une erreur est survenue lors de la récupération des informations utilisateur.");
-      return interaction.reply({ content: "Une erreur est survenue lors de la récupération des informations utilisateur.", flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ content: "Une erreur est survenue lors de la récupération des informations utilisateur.", flags: 64 }); // MessageFlags.Ephemeral
     }
   },
 };

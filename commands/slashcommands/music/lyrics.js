@@ -19,8 +19,7 @@ export default {
             if (!queue || !queue.currentTrack) {
                 return interaction.reply({ 
                     content: '❌ Aucune musique en cours ! Veuillez spécifier un titre.', 
-                    flags: 64 // MessageFlags.Ephemeral 
-                });
+                    flags: 64 }); // MessageFlags.Ephemeral
             }
             query = queue.currentTrack.title;
         }
@@ -48,10 +47,11 @@ export default {
                 .setDescription('Impossible de récupérer les paroles pour cette musique.')
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
     }
 };
+
 
 
 

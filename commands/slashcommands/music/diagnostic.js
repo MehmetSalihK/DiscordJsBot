@@ -73,9 +73,10 @@ export async function execute(interaction) {
             .setDescription('Une erreur s\'est produite lors du diagnostic.')
             .setTimestamp();
         
-        await interaction.reply({ embeds: [errorEmbed], flags: 64 // MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [errorEmbed], flags: 64 }); // MessageFlags.Ephemeral
     }
 }
+
 
 
 

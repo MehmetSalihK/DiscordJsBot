@@ -54,8 +54,7 @@ async function handleButtonReactInteraction(interaction) {
             console.log('❌ [DEBUG] Rôle introuvable avec ID:', roleId);
             return await interaction.reply({
                 embeds: [createErrorEmbed('Ce rôle n\'existe plus sur le serveur.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         // Vérifier si le bot peut gérer ce rôle
@@ -65,8 +64,7 @@ async function handleButtonReactInteraction(interaction) {
             console.log('❌ [DEBUG] Permissions insuffisantes pour gérer le rôle');
             return await interaction.reply({
                 embeds: [createErrorEmbed('Je n\'ai pas les permissions pour gérer ce rôle.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         // Vérifier si le membre a déjà le rôle
@@ -81,8 +79,7 @@ async function handleButtonReactInteraction(interaction) {
                 console.log('✅ [DEBUG] Rôle retiré avec succès');
                 await interaction.reply({
                     embeds: [createSuccessEmbed(`Le rôle **${role.name}** vous a été retiré !`)],
-                    flags: 64 // MessageFlags.Ephemeral
-                });
+                    flags: 64 }); // MessageFlags.Ephemeral
             } else {
                 // Ajouter le rôle
                 console.log('🔄 [DEBUG] Tentative d\'ajout du rôle...');
@@ -90,15 +87,13 @@ async function handleButtonReactInteraction(interaction) {
                 console.log('✅ [DEBUG] Rôle ajouté avec succès');
                 await interaction.reply({
                     embeds: [createSuccessEmbed(`Le rôle **${role.name}** vous a été attribué !`)],
-                    flags: 64 // MessageFlags.Ephemeral
-                });
+                    flags: 64 }); // MessageFlags.Ephemeral
             }
         } catch (error) {
             console.error('❌ [DEBUG] Erreur lors de la gestion du rôle:', error);
             await interaction.reply({
                 embeds: [createErrorEmbed('Une erreur est survenue lors de la gestion du rôle.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
     } catch (error) {
@@ -106,8 +101,7 @@ async function handleButtonReactInteraction(interaction) {
         if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
                 embeds: [createErrorEmbed('Une erreur inattendue est survenue.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
     }
 }
@@ -142,8 +136,7 @@ async function handleButtonReactSelectMenu(interaction) {
         if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
                 embeds: [createErrorEmbed('Une erreur inattendue est survenue.')],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
     }
 }
@@ -165,5 +158,6 @@ export {
     isButtonReactInteraction,
     isButtonReactSelectMenuInteraction
 };
+
 
 

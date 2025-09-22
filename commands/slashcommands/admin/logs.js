@@ -34,7 +34,7 @@ export default {
   async execute(interaction) {
     try {
       if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission insuffisante', "Vous n'avez pas la permission de gérer la configuration du serveur.")], flags: 64 // MessageFlags.Ephemeral });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission insuffisante', "Vous n'avez pas la permission de gérer la configuration du serveur.")], flags: 64 }); // MessageFlags.Ephemeral
       }
       const sub = interaction.options.getSubcommand(false) || 'panel';
       if (sub === 'panel') {
@@ -48,7 +48,7 @@ export default {
       if (sub === 'set') {
         const ch = interaction.options.getChannel('salon', true);
         if (!ch || ch.type !== ChannelType.GuildText) {
-          return interaction.reply({ embeds: [createErrorEmbed('Salon invalide', 'Veuillez choisir un salon texte du serveur.')], flags: 64 // MessageFlags.Ephemeral });
+          return interaction.reply({ embeds: [createErrorEmbed('Salon invalide', 'Veuillez choisir un salon texte du serveur.')], flags: 64 }); // MessageFlags.Ephemeral
         }
         const updated = { ...logs, logChannelId: ch.id };
         setGuildConfig(interaction.guildId, { logs: updated });
@@ -62,7 +62,7 @@ export default {
 
       if (sub === 'enable' || sub === 'on') {
         if (!logs.logChannelId) {
-          return interaction.reply({ embeds: [createErrorEmbed('Aucun salon configuré', 'Veuillez d\'abord définir un salon avec `/logs set #salon`.')], flags: 64 // MessageFlags.Ephemeral });
+          return interaction.reply({ embeds: [createErrorEmbed('Aucun salon configuré', 'Veuillez d\'abord définir un salon avec `/logs set #salon`.')], flags: 64 }); // MessageFlags.Ephemeral
         }
         setGuildConfig(interaction.guildId, { logs: { ...logs, active: true } });
         return interaction.reply({ embeds: [createInfoEmbed('✅ Logs activés', 'Les logs normaux sont maintenant activés.')] });
@@ -75,10 +75,11 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /logs:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'exécution de /logs.")] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'exécution de /logs.")], flags: 64 // MessageFlags.Ephemeral });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'exécution de /logs.")], flags: 64 }); // MessageFlags.Ephemeral
     }
   },
 };
+
 
 
 

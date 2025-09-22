@@ -78,65 +78,7 @@ async function main() {
     }
   }
 
-  // Gestionnaire pour les commandes slash et les interactions
-  client.on(Events.InteractionCreate, async (interaction) => {
-    try {
-      if (interaction.isChatInputCommand()) {
-        const command = client.slashCommands.get(interaction.commandName);
-        if (!command) {
-          await interaction.reply({ content: 'Commande introuvable.', flags: MessageFlags.Ephemeral });
-          return;
-        }
-        await command.execute(interaction, client);
-      } else if (interaction.isButton()) {
-        const id = interaction.customId || '';
-        if (id.startsWith('help_')) return handleHelpButton(interaction, client);
-        if (id.startsWith('logs_')) return handleLogsButton(interaction, client);
-        if (id.startsWith('srv_')) return handleServerInfoButton(interaction, client);
-        if (id.startsWith('xp_')) return handleXPButton(interaction, client);
-        
-        // Gestion des boutons AutoRole via le gestionnaire dédié
-        if (id.startsWith('autorole_')) {
-          const { handleAutoRoleInteraction } = await import('./modules/autorole/interactions.js');
-          return handleAutoRoleInteraction(interaction);
-        }
-        
-        // Gestion des boutons de réaction via le gestionnaire dédié
-        if (id.startsWith('buttonreact_')) {
-          const { handleButtonReactInteraction } = await import('./modules/buttonreact/interactions.js');
-          await handleButtonReactInteraction(interaction);
-          return;
-        }
-
-        // Gestion des boutons de musique
-        if (id.startsWith('music_') || id.startsWith('queue_') || id.startsWith('search_')) {
-          await client.musicButtonHandler.handleButtonInteraction(interaction);
-          return;
-        }
-      } else if (interaction.isStringSelectMenu()) {
-        // Gestion des menus de sélection via le gestionnaire dédié
-        if (interaction.customId.startsWith('autorole_')) {
-          const { handleAutoRoleInteraction } = await import('./modules/autorole/interactions.js');
-          return handleAutoRoleInteraction(interaction);
-        }
-      } else if (interaction.isModalSubmit()) {
-        if (interaction.customId === 'xp_levels_modal') return handleXPModal(interaction, client);
-        
-        // Gestion des modales AutoRole via le gestionnaire dédié
-        if (interaction.customId.startsWith('autorole_')) {
-          const { handleAutoRoleInteraction } = await import('./modules/autorole/interactions.js');
-          return handleAutoRoleInteraction(interaction);
-        }
-      }
-    } catch (error) {
-      logger.error('Erreur lors du traitement d\'une interaction:', error);
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply('Une erreur est survenue.');
-      } else {
-        await interaction.reply({ content: 'Une erreur est survenue.', flags: MessageFlags.Ephemeral });
-      }
-    }
-  });
+  // Les interactions sont gérées par src/events/interactioncreate.js
 
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guild) return;

@@ -1,4 +1,4 @@
-import { Player, QueryType } from 'discord-player';
+﻿import { Player, QueryType } from 'discord-player';
 import { DefaultExtractors } from '@discord-player/extractor';
 import { YoutubeiExtractor } from 'discord-player-youtubei';
 import ytdl from 'ytdl-core';
@@ -31,14 +31,14 @@ class QueueManager {
         
         console.log('🚀 Initialisation du QueueManager...');
         this.setupPlayer().catch(error => {
-            console.error('❌ Erreur lors de l\'initialisation du player:', error);
+            console.error('âŒ Erreur lors de l\'initialisation du player:', error);
         });
         this.loadServerConfigs();
     }
 
     async setupPlayer() {
         // Configuration du player - Extracteurs
-        console.log('🔧 Chargement des extracteurs...');
+        console.log('ðŸ”§ Chargement des extracteurs...');
         try {
             // Charger les extracteurs par défaut (Spotify, SoundCloud, YouTube, etc.)
             await this.player.extractors.loadMulti(DefaultExtractors);
@@ -49,7 +49,7 @@ class QueueManager {
             console.log('✅ YoutubeiExtractor enregistré pour YouTube');
             
             // Configuration ytdl-core pour YouTube (plus fiable)
-            console.log('🔑 Configuration de l\'extracteur YouTube avec ytdl-core...');
+            console.log('ðŸ”‘ Configuration de l\'extracteur YouTube avec ytdl-core...');
             
             // Vérifier que ytdl-core fonctionne
             try {
@@ -58,10 +58,10 @@ class QueueManager {
                 if (isValid) {
                     console.log('✅ ytdl-core configuré et fonctionnel');
                 } else {
-                    console.warn('⚠️ ytdl-core ne peut pas valider les URLs YouTube');
+                    console.warn('âš ï¸ ytdl-core ne peut pas valider les URLs YouTube');
                 }
             } catch (error) {
-                console.warn('⚠️ Problème avec ytdl-core:', error.message);
+                console.warn('âš ï¸ Problème avec ytdl-core:', error.message);
             }
 
             // Enregistrer play-dl comme extracteur de fallback pour YouTube
@@ -77,49 +77,49 @@ class QueueManager {
                 
                 console.log('✅ Extracteur play-dl configuré comme fallback pour YouTube');
             } catch (error) {
-                console.log('⚠️ Impossible de configurer l\'extracteur play-dl:', error.message);
+                console.log('âš ï¸ Impossible de configurer l\'extracteur play-dl:', error.message);
             }
         } catch (error) {
-            console.error('❌ Erreur lors du chargement des extracteurs:', error);
+            console.error('âŒ Erreur lors du chargement des extracteurs:', error);
         }
         
-        // Événements du player
+        // Ã‰vénements du player
         this.player.events.on('playerStart', (queue, track) => {
-            console.log('▶️ [PLAYER_START] Démarrage de la lecture');
+            console.log('▶️ [PLAYER_START] Démarrage de la lecture');
             console.log(`   🎵 Track: ${track.title}`);
-            console.log(`   👤 Artiste: ${track.author}`);
-            console.log(`   🏠 Serveur: ${queue.guild.name} (${queue.guild.id})`);
-            console.log(`   📊 Queue: ${queue.tracks.size} tracks en attente`);
-            console.log(`   🔊 Volume: ${queue.node.volume}%`);
+            console.log(`   ðŸ‘¤ Artiste: ${track.author}`);
+            console.log(`   ðŸ  Serveur: ${queue.guild.name} (${queue.guild.id})`);
+            console.log(`   ðŸ“Š Queue: ${queue.tracks.size} tracks en attente`);
+            console.log(`   ðŸ”Š Volume: ${queue.node.volume}%`);
             
             // Utiliser le nouveau panel de musique
             this.panelManager.createOrUpdatePanel(queue, track, queue.metadata.channel);
         });
 
         this.player.events.on('playerFinish', (queue, track) => {
-            console.log('⏹️ [PLAYER_FINISH] Fin de lecture');
+            console.log('â¹ï¸ [PLAYER_FINISH] Fin de lecture');
             console.log(`   🎵 Track terminé: ${track.title}`);
-            console.log(`   🏠 Serveur: ${queue.guild.name} (${queue.guild.id})`);
-            console.log(`   📊 Tracks restants: ${queue.tracks.data.length}`);
+            console.log(`   ðŸ  Serveur: ${queue.guild.name} (${queue.guild.id})`);
+            console.log(`   ðŸ“Š Tracks restants: ${queue.tracks.data.length}`);
             
-            // Mettre à jour le panel si il y a encore des musiques
+            // Mettre Ã  jour le panel si il y a encore des musiques
             if (queue.tracks.data.length > 0) {
-                console.log(`   ⏭️ Passage au track suivant dans 1 seconde...`);
+                console.log(`   â­ï¸ Passage au track suivant dans 1 seconde...`);
                 setTimeout(() => {
                     if (queue.currentTrack) {
-                        console.log(`   ✅ Mise à jour du panel pour: ${queue.currentTrack.title}`);
+                        console.log(`   ✅ Mise Ã  jour du panel pour: ${queue.currentTrack.title}`);
                         this.panelManager.createOrUpdatePanel(queue, queue.currentTrack, queue.metadata.channel);
                     }
                 }, 1000);
             } else {
-                console.log(`   📭 Aucun track suivant`);
+                console.log(`   ðŸ“­ Aucun track suivant`);
             }
         });
 
         this.player.events.on('emptyQueue', (queue) => {
-            console.log('📭 [EMPTY_QUEUE] Queue vide');
-            console.log(`   🏠 Serveur: ${queue.guild.name} (${queue.guild.id})`);
-            console.log(`   📍 Canal: ${queue.metadata.channel.name}`);
+            console.log('ðŸ“­ [EMPTY_QUEUE] Queue vide');
+            console.log(`   ðŸ  Serveur: ${queue.guild.name} (${queue.guild.id})`);
+            console.log(`   ðŸ“ Canal: ${queue.metadata.channel.name}`);
             
             // Afficher le panel arrêté
             this.panelManager.updateStoppedPanel(queue.guild.id, 'File d\'attente terminée');
@@ -133,16 +133,16 @@ class QueueManager {
         });
 
         this.player.events.on('error', (queue, error) => {
-            console.error('❌ [PLAYER_ERROR] Erreur du player');
-            console.error(`   🏠 Serveur: ${queue?.guild?.name || 'Inconnu'} (${queue?.guild?.id || 'Inconnu'})`);
-            console.error(`   📍 Canal: ${queue?.metadata?.channel?.name || 'Inconnu'}`);
+            console.error('âŒ [PLAYER_ERROR] Erreur du player');
+            console.error(`   ðŸ  Serveur: ${queue?.guild?.name || 'Inconnu'} (${queue?.guild?.id || 'Inconnu'})`);
+            console.error(`   ðŸ“ Canal: ${queue?.metadata?.channel?.name || 'Inconnu'}`);
             console.error(`   🎵 Track actuel: ${queue?.currentTrack?.title || 'Aucun'}`);
-            console.error(`   ❌ Erreur: ${error.message}`);
-            console.error(`   📊 Stack trace:`, error.stack);
+            console.error(`   âŒ Erreur: ${error.message}`);
+            console.error(`   ðŸ“Š Stack trace:`, error.stack);
             
             const embed = new EmbedBuilder()
                 .setColor('#ff6b6b')
-                .setTitle('❌ Erreur')
+                .setTitle('âŒ Erreur')
                 .setDescription(`Une erreur s'est produite: ${error.message}`)
                 .setTimestamp();
             
@@ -153,20 +153,20 @@ class QueueManager {
 
         // Event spécifique pour les erreurs de lecture audio
         this.player.events.on('playerError', (queue, error) => {
-            console.error('🔊 [PLAYER_ERROR] Erreur de lecture audio');
-            console.error(`   🏠 Serveur: ${queue?.guild?.name || 'Inconnu'} (${queue?.guild?.id || 'Inconnu'})`);
+            console.error('ðŸ”Š [PLAYER_ERROR] Erreur de lecture audio');
+            console.error(`   ðŸ  Serveur: ${queue?.guild?.name || 'Inconnu'} (${queue?.guild?.id || 'Inconnu'})`);
             console.error(`   🎵 Track: ${queue?.currentTrack?.title || 'Aucun'}`);
-            console.error(`   🔗 URL: ${queue?.currentTrack?.url || 'Aucune'}`);
-            console.error(`   ❌ Erreur Player: ${error.message}`);
-            console.error(`   📊 Type d'erreur:`, error.name);
+            console.error(`   ðŸ”— URL: ${queue?.currentTrack?.url || 'Aucune'}`);
+            console.error(`   âŒ Erreur Player: ${error.message}`);
+            console.error(`   ðŸ“Š Type d'erreur:`, error.name);
             
             // Tentative de skip automatique en cas d'erreur
             if (queue && queue.tracks.data.length > 0) {
-                console.log('⏭️ Tentative de skip automatique...');
+                console.log('â­ï¸ Tentative de skip automatique...');
                 try {
                     queue.node.skip();
                 } catch (skipError) {
-                    console.error('❌ Impossible de skip:', skipError.message);
+                    console.error('âŒ Impossible de skip:', skipError.message);
                 }
             }
         });
@@ -182,9 +182,9 @@ class QueueManager {
                 this.saveServerConfigs();
             }
         } catch (error) {
-            console.error('❌ [CONFIG_ERROR] Erreur lors du chargement des configs serveur:');
-            console.error(`   📁 Chemin: ${configPath}`);
-            console.error(`   ⚠️ Erreur:`, error);
+            console.error('âŒ [CONFIG_ERROR] Erreur lors du chargement des configs serveur:');
+            console.error(`   ðŸ“ Chemin: ${configPath}`);
+            console.error(`   âš ï¸ Erreur:`, error);
             this.serverConfigs = {};
         }
     }
@@ -194,9 +194,9 @@ class QueueManager {
         try {
             fs.writeFileSync(configPath, JSON.stringify(this.serverConfigs, null, 2));
         } catch (error) {
-            console.error('❌ [CONFIG_SAVE_ERROR] Erreur lors de la sauvegarde des configs serveur:');
-            console.error(`   📁 Chemin: ${configPath}`);
-            console.error(`   ⚠️ Erreur:`, error);
+            console.error('âŒ [CONFIG_SAVE_ERROR] Erreur lors de la sauvegarde des configs serveur:');
+            console.error(`   ðŸ“ Chemin: ${configPath}`);
+            console.error(`   âš ï¸ Erreur:`, error);
         }
     }
 
@@ -215,22 +215,22 @@ class QueueManager {
     async play(interaction, query) {
         // Logs de débogage pour tracer l'activité
         console.log(`🎵 [PLAY] Nouvelle demande de lecture`);
-        console.log(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-        console.log(`   🏠 Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
-        console.log(`   📝 Requête: "${query}"`);
-        console.log(`   📍 Canal: #${interaction.channel.name}`);
+        console.log(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+        console.log(`   ðŸ  Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
+        console.log(`   ðŸ“ Requête: "${query}"`);
+        console.log(`   ðŸ“ Canal: #${interaction.channel.name}`);
 
         // Déférer la réponse immédiatement pour éviter les erreurs d'interaction
         try {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.deferReply();
-                console.log(`   ⏳ Réponse différée avec succès`);
+                console.log(`   â³ Réponse différée avec succès`);
             }
         } catch (error) {
-            console.log(`   ❌ Erreur lors du deferReply: ${error.message}`);
+            console.log(`   âŒ Erreur lors du deferReply: ${error.message}`);
             // Si l'interaction a expiré, on ne peut plus répondre
             if (error.code === 10062) {
-                console.log(`   ⚠️ Interaction expirée - impossible de répondre`);
+                console.log(`   âš ï¸ Interaction expirée - impossible de répondre`);
                 return;
             }
         }
@@ -252,7 +252,7 @@ class QueueManager {
 
         try {
             // Première tentative avec YOUTUBE_SEARCH (meilleur pour les recherches textuelles)
-            console.log('🔍 Recherche YouTube pour:', query);
+            console.log('ðŸ” Recherche YouTube pour:', query);
             searchResult = await this.player.search(query, {
                 requestedBy: interaction.user,
                 searchEngine: QueryType.YOUTUBE_SEARCH,
@@ -265,11 +265,11 @@ class QueueManager {
             const tracks = searchResult?.tracks?.data || searchResult?.tracks || [];
             const hasResults = tracks && tracks.length > 0;
 
-            console.log('📊 Résultats trouvés:', tracks.length, 'tracks');
+            console.log('ðŸ“Š Résultats trouvés:', tracks.length, 'tracks');
 
             // Si aucun résultat avec YOUTUBE_SEARCH, essayer avec YOUTUBE
             if (!hasResults) {
-                console.log('🔄 Fallback activé - Tentative avec QueryType.YOUTUBE...');
+                console.log('ðŸ”„ Fallback activé - Tentative avec QueryType.YOUTUBE...');
                 searchEngine = 'youtube';
                 
                 searchResult = await this.player.search(query, {
@@ -283,7 +283,7 @@ class QueueManager {
                 if (hasFallbackResults) {
                     console.log('✅ Fallback réussi - Résultats trouvés:', fallbackTracks.length, 'tracks');
                 } else {
-                    console.log('❌ Fallback échoué - Aucun résultat trouvé');
+                    console.log('âŒ Fallback échoué - Aucun résultat trouvé');
                 }
             }
 
@@ -316,14 +316,14 @@ class QueueManager {
                         if (hasSpotifyResults) {
                             console.log('✅ Fallback Spotify réussi - Résultats trouvés:', spotifyTracks.length, 'tracks');
                         } else {
-                            console.log('❌ Fallback Spotify échoué - Aucun résultat trouvé');
+                            console.log('âŒ Fallback Spotify échoué - Aucun résultat trouvé');
                         }
                     } catch (spotifyError) {
-                        console.error('❌ [SPOTIFY_ERROR] Erreur lors du fallback Spotify:');
-                        console.error(`   🔍 Requête: ${query}`);
-                        console.error(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-                        console.error(`   🏠 Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
-                        console.error(`   ⚠️ Erreur:`, spotifyError);
+                        console.error('âŒ [SPOTIFY_ERROR] Erreur lors du fallback Spotify:');
+                        console.error(`   ðŸ” Requête: ${query}`);
+                        console.error(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+                        console.error(`   ðŸ  Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
+                        console.error(`   âš ï¸ Erreur:`, spotifyError);
                     }
                 }
             }
@@ -334,15 +334,15 @@ class QueueManager {
 
             // Si aucun résultat trouvé avec tous les moteurs
             if (!hasAnyResults) {
-                console.log('❌ Aucun résultat trouvé pour:', query);
+                console.log('âŒ Aucun résultat trouvé pour:', query);
                 
                 const embed = new EmbedBuilder()
                     .setColor('#ff0000')
-                    .setTitle('❌ Aucun résultat trouvé')
+                    .setTitle('âŒ Aucun résultat trouvé')
                     .setDescription(`Impossible de trouver **${query}**.`)
                     .addFields({
-                        name: '🔍 Moteurs testés',
-                        value: '• YouTube Search\n• YouTube Direct' + (query.includes('spotify.com') ? '\n• Spotify' : ''),
+                        name: 'ðŸ” Moteurs testés',
+                        value: 'â€¢ YouTube Search\nâ€¢ YouTube Direct' + (query.includes('spotify.com') ? '\nâ€¢ Spotify' : ''),
                         inline: false
                     })
                     .setTimestamp();
@@ -350,9 +350,9 @@ class QueueManager {
                 return interaction.editReply({ embeds: [embed] });
             }
 
-            console.log(`🎛️ [QUEUE] Création de la queue pour le serveur ${interaction.guild.name}`);
+            console.log(`ðŸŽ›ï¸ [QUEUE] Création de la queue pour le serveur ${interaction.guild.name}`);
             const serverConfig = this.getServerConfig(interaction.guild.id);
-            console.log(`   🔊 Volume configuré: ${serverConfig.volume}%`);
+            console.log(`   ðŸ”Š Volume configuré: ${serverConfig.volume}%`);
             
             const queue = this.player.nodes.create(interaction.guild, {
                 metadata: {
@@ -371,77 +371,77 @@ class QueueManager {
 
             try {
                 if (!queue.connection) {
-                    console.log('🔗 Connexion au salon vocal:', channel.name);
+                    console.log('ðŸ”— Connexion au salon vocal:', channel.name);
                     await queue.connect(channel);
                     console.log('✅ Connecté au salon vocal avec succès');
                 } else {
-                    console.log('🔗 Déjà connecté au salon vocal');
+                    console.log('ðŸ”— DéjÃ  connecté au salon vocal');
                 }
             } catch (connectionError) {
-                console.error('❌ [CONNECTION_ERROR] Erreur de connexion vocale:');
-                console.error(`   🎤 Salon: ${channel.name} (${channel.id})`);
-                console.error(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-                console.error(`   🏠 Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
-                console.error(`   ⚠️ Erreur:`, connectionError);
+                console.error('âŒ [CONNECTION_ERROR] Erreur de connexion vocale:');
+                console.error(`   ðŸŽ¤ Salon: ${channel.name} (${channel.id})`);
+                console.error(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+                console.error(`   ðŸ  Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
+                console.error(`   âš ï¸ Erreur:`, connectionError);
                 this.player.nodes.delete(interaction.guild.id);
                 return this.sendErrorEmbed(interaction, 'Impossible de rejoindre le salon vocal !');
             }
 
             if (searchResult.playlist) {
-                console.log(`📋 [PLAYLIST] Traitement de la playlist: ${searchResult.playlist.title}`);
-                console.log(`   📊 Tracks dans la playlist: ${finalTracks.length}`);
+                console.log(`ðŸ“‹ [PLAYLIST] Traitement de la playlist: ${searchResult.playlist.title}`);
+                console.log(`   ðŸ“Š Tracks dans la playlist: ${finalTracks.length}`);
                 
                 // Filtrer les doublons pour les playlists
                 const uniqueTracks = finalTracks.filter(track => !this.isDuplicateTrack(queue, track));
                 const duplicatesCount = finalTracks.length - uniqueTracks.length;
                 
                 console.log(`   ✅ Tracks uniques: ${uniqueTracks.length}`);
-                console.log(`   ⚠️ Doublons ignorés: ${duplicatesCount}`);
+                console.log(`   âš ï¸ Doublons ignorés: ${duplicatesCount}`);
 
                 if (uniqueTracks.length === 0) {
-                    console.log(`   ❌ Aucun track unique - playlist déjà présente`);
+                    console.log(`   âŒ Aucun track unique - playlist déjÃ  présente`);
                     const embed = new EmbedBuilder()
                         .setColor('#ff9500')
-                        .setTitle('⚠️ Playlist déjà présente')
-                        .setDescription(`Toutes les musiques de **${searchResult.playlist.title}** sont déjà dans la queue.`)
+                        .setTitle('âš ï¸ Playlist déjÃ  présente')
+                        .setDescription(`Toutes les musiques de **${searchResult.playlist.title}** sont déjÃ  dans la queue.`)
                         .setTimestamp();
                     
                     return interaction.editReply({ embeds: [embed] });
                 }
 
-                console.log(`   ➕ Ajout des tracks à la queue...`);
+                console.log(`   âž• Ajout des tracks Ã  la queue...`);
                 queue.addTrack(uniqueTracks);
                 console.log(`   ✅ Playlist ajoutée avec succès`);
                 const embed = new EmbedBuilder()
                     .setColor('#4ecdc4')
-                    .setTitle('📋 Playlist ajoutée')
-                    .setDescription(`**${searchResult.playlist.title}** a été ajoutée à la queue\n🎵 **${uniqueTracks.length}** musiques ajoutées${duplicatesCount > 0 ? `\n⚠️ ${duplicatesCount} doublon(s) ignoré(s)` : ''}`)
+                    .setTitle('ðŸ“‹ Playlist ajoutée')
+                    .setDescription(`**${searchResult.playlist.title}** a été ajoutée Ã  la queue\n🎵 **${uniqueTracks.length}** musiques ajoutées${duplicatesCount > 0 ? `\nâš ï¸ ${duplicatesCount} doublon(s) ignoré(s)` : ''}`)
                     .setThumbnail(searchResult.playlist.thumbnail)
                     .addFields(
-                        { name: '👤 Demandé par', value: interaction.user.toString(), inline: true },
-                        { name: '⏱️ Durée totale', value: this.formatDuration(uniqueTracks.reduce((acc, track) => acc + track.duration, 0)), inline: true }
+                        { name: 'ðŸ‘¤ Demandé par', value: interaction.user.toString(), inline: true },
+                        { name: 'â±ï¸ Durée totale', value: this.formatDuration(uniqueTracks.reduce((acc, track) => acc + track.duration, 0)), inline: true }
                     )
                     .setTimestamp();
 
                 await interaction.editReply({ embeds: [embed] });
             } else {
                 console.log(`🎵 [TRACK] Traitement du track: ${finalTracks[0].title}`);
-                console.log(`   👤 Artiste: ${finalTracks[0].author}`);
-                console.log(`   ⏱️ Durée: ${finalTracks[0].duration}`);
+                console.log(`   ðŸ‘¤ Artiste: ${finalTracks[0].author}`);
+                console.log(`   â±ï¸ Durée: ${finalTracks[0].duration}`);
                 
                 // Vérifier les doublons pour une seule musique
                 if (this.isDuplicateTrack(queue, finalTracks[0])) {
-                    console.log(`   ⚠️ Track déjà présent dans la queue`);
+                    console.log(`   âš ï¸ Track déjÃ  présent dans la queue`);
                     const embed = new EmbedBuilder()
                         .setColor('#ff9500')
-                        .setTitle('⚠️ Musique déjà présente')
-                        .setDescription(`**${finalTracks[0].title}** est déjà dans la queue.`)
+                        .setTitle('âš ï¸ Musique déjÃ  présente')
+                        .setDescription(`**${finalTracks[0].title}** est déjÃ  dans la queue.`)
                         .setTimestamp();
                     
                     return interaction.editReply({ embeds: [embed] });
                 }
 
-                console.log(`   ➕ Ajout du track à la queue...`);
+                console.log(`   âž• Ajout du track Ã  la queue...`);
                 queue.addTrack(finalTracks[0]);
                 console.log(`   ✅ Track ajouté avec succès`);
                 
@@ -455,23 +455,23 @@ class QueueManager {
                 });
             }
 
-            console.log('🎵 État de la queue avant lecture:', {
+            console.log('🎵 Ã‰tat de la queue avant lecture:', {
                 isPlaying: queue.node.isPlaying(),
                 tracksCount: queue.tracks.size,
                 currentTrack: queue.currentTrack?.title
             });
 
             if (!queue.node.isPlaying()) {
-                console.log('▶️ Démarrage de la lecture...');
+                console.log('▶️ Démarrage de la lecture...');
                 try {
                     await queue.node.play();
                     console.log('✅ Lecture démarrée avec succès');
                 } catch (playError) {
-                    console.error('❌ Erreur lors du démarrage de la lecture:', playError);
+                    console.error('âŒ Erreur lors du démarrage de la lecture:', playError);
                     return this.sendErrorEmbed(interaction, 'Erreur lors du démarrage de la lecture !');
                 }
             } else {
-                console.log('🎵 Musique déjà en cours de lecture');
+                console.log('🎵 Musique déjÃ  en cours de lecture');
             }
 
             // Log avec informations sur le moteur de recherche
@@ -491,95 +491,95 @@ class QueueManager {
     }
 
     async skip(interaction) {
-        console.log('⏭️ [COMMAND_SKIP] Commande skip reçue');
-        console.log(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-        console.log(`   🏠 Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
+        console.log('â­ï¸ [COMMAND_SKIP] Commande skip reçue');
+        console.log(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+        console.log(`   ðŸ  Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
         
         const queue = this.player.nodes.get(interaction.guild.id);
         
         if (!queue || !queue.currentTrack) {
-            console.log('   ❌ Aucune queue ou track actuel trouvé');
-            const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique à passer !');
+            console.log('   âŒ Aucune queue ou track actuel trouvé');
+            const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique Ã  passer !');
             return interaction.editReply({ embeds: [embed] });
         }
 
         const currentTrack = queue.currentTrack;
-        console.log(`   🎵 Track à passer: ${currentTrack.title}`);
-        console.log(`   📊 Tracks restants: ${queue.tracks.size}`);
+        console.log(`   🎵 Track Ã  passer: ${currentTrack.title}`);
+        console.log(`   ðŸ“Š Tracks restants: ${queue.tracks.size}`);
         
         queue.node.skip();
         console.log('   ✅ Track passé avec succès');
         
-        const embed = MusicEmbedBuilder.createSuccessEmbed(`⏭️ **${currentTrack.title}** a été passée.`);
+        const embed = MusicEmbedBuilder.createSuccessEmbed(`â­ï¸ **${currentTrack.title}** a été passée.`);
         await this.safeReply(interaction, { embeds: [embed] });
     }
 
     async stop(interaction) {
-        console.log('⏹️ [COMMAND_STOP] Commande stop reçue');
-        console.log(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-        console.log(`   🏠 Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
+        console.log('â¹ï¸ [COMMAND_STOP] Commande stop reçue');
+        console.log(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+        console.log(`   ðŸ  Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
         
         const queue = this.player.nodes.get(interaction.guild.id);
         
         if (!queue) {
-            console.log('   ❌ Aucune queue trouvée');
+            console.log('   âŒ Aucune queue trouvée');
             const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture !');
             return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         console.log(`   🎵 Track actuel: ${queue.currentTrack?.title || 'Aucun'}`);
-        console.log(`   📊 Tracks dans la queue: ${queue.tracks.size}`);
+        console.log(`   ðŸ“Š Tracks dans la queue: ${queue.tracks.size}`);
         
         queue.node.stop();
         console.log('   ✅ Lecture arrêtée et queue vidée');
         
-        const embed = MusicEmbedBuilder.createSuccessEmbed('⏹️ Lecture arrêtée et file d\'attente vidée.');
+        const embed = MusicEmbedBuilder.createSuccessEmbed('â¹ï¸ Lecture arrêtée et file d\'attente vidée.');
         await this.safeReply(interaction, { embeds: [embed] });
     }
 
     async pause(interaction) {
-        console.log('⏸️ [COMMAND_PAUSE] Commande pause reçue');
-        console.log(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-        console.log(`   🏠 Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
+        console.log('â¸ï¸ [COMMAND_PAUSE] Commande pause reçue');
+        console.log(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+        console.log(`   ðŸ  Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
         
         const queue = this.player.nodes.get(interaction.guild.id);
         
         if (!queue || !queue.node.isPlaying()) {
-            console.log('   ❌ Aucune queue trouvée ou pas en cours de lecture');
+            console.log('   âŒ Aucune queue trouvée ou pas en cours de lecture');
             const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture !');
             return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         console.log(`   🎵 Track actuel: ${queue.currentTrack?.title || 'Aucun'}`);
-        console.log(`   📊 État: ${queue.node.isPaused() ? 'Déjà en pause' : 'En lecture'}`);
+        console.log(`   ðŸ“Š Ã‰tat: ${queue.node.isPaused() ? 'DéjÃ  en pause' : 'En lecture'}`);
         
         queue.node.pause();
         console.log('   ✅ Lecture mise en pause');
         
-        const embed = MusicEmbedBuilder.createSuccessEmbed('⏸️ Lecture mise en pause.');
+        const embed = MusicEmbedBuilder.createSuccessEmbed('â¸ï¸ Lecture mise en pause.');
         await this.safeReply(interaction, { embeds: [embed] });
     }
 
     async resume(interaction) {
-        console.log('▶️ [COMMAND_RESUME] Commande resume reçue');
-        console.log(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-        console.log(`   🏠 Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
+        console.log('▶️ [COMMAND_RESUME] Commande resume reçue');
+        console.log(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+        console.log(`   ðŸ  Serveur: ${interaction.guild.name} (${interaction.guild.id})`);
         
         const queue = this.player.nodes.get(interaction.guild.id);
         
         if (!queue || !queue.node.isPaused()) {
-            console.log('   ❌ Aucune queue trouvée ou pas en pause');
+            console.log('   âŒ Aucune queue trouvée ou pas en pause');
             const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique en pause !');
             return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         console.log(`   🎵 Track actuel: ${queue.currentTrack?.title || 'Aucun'}`);
-        console.log(`   📊 État: En pause`);
+        console.log(`   ðŸ“Š Ã‰tat: En pause`);
         
         queue.node.resume();
         console.log('   ✅ Lecture reprise');
         
-        const embed = MusicEmbedBuilder.createSuccessEmbed('▶️ Lecture reprise.');
+        const embed = MusicEmbedBuilder.createSuccessEmbed('▶️ Lecture reprise.');
         await this.safeReply(interaction, { embeds: [embed] });
     }
 
@@ -588,12 +588,12 @@ class QueueManager {
         
         if (!queue) {
             const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture !');
-            return this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         if (volume < 0 || volume > 100) {
             const embed = MusicEmbedBuilder.createErrorEmbed('Le volume doit être entre 0 et 100 !');
-            return this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.node.setVolume(volume);
@@ -602,7 +602,7 @@ class QueueManager {
         this.serverConfigs[interaction.guild.id].volume = volume;
         this.saveServerConfigs();
 
-        const embed = MusicEmbedBuilder.createSuccessEmbed(`🔊 Volume réglé à **${volume}%**`);
+        const embed = MusicEmbedBuilder.createSuccessEmbed(`ðŸ”Š Volume réglé Ã  **${volume}%**`);
         await this.safeReply(interaction, { embeds: [embed] });
         this.logAction(interaction.guild.id, interaction.user, 'volume', `${volume}%`);
     }
@@ -612,7 +612,7 @@ class QueueManager {
         
         if (!queue || (!queue.currentTrack && queue.tracks.data.length === 0)) {
             const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique dans la file d\'attente.');
-            return this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const embed = MusicEmbedBuilder.createQueueEmbed(queue, page);
@@ -622,7 +622,7 @@ class QueueManager {
         await this.safeReply(interaction, { 
             embeds: [embed], 
             components: buttons, 
-            flags: 64 // MessageFlags.Ephemeral 
+            flags: 64 // MessageFlags.Ephemeral
         });
     }
 
@@ -631,7 +631,7 @@ class QueueManager {
         
         if (!queue || !queue.currentTrack) {
             const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique n\'est en cours de lecture.');
-            return this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const embed = MusicEmbedBuilder.createNowPlayingEmbed(queue.currentTrack, queue);
@@ -648,7 +648,7 @@ class QueueManager {
         
         if (!queue) {
             const embed = MusicEmbedBuilder.createErrorEmbed('Aucune musique en cours de lecture !');
-            return this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const modes = {
@@ -659,14 +659,14 @@ class QueueManager {
 
         if (!modes.hasOwnProperty(mode.toLowerCase())) {
             const embed = MusicEmbedBuilder.createErrorEmbed('Mode invalide ! Utilisez: off, track, ou queue');
-            return this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const loopMode = modes[mode.toLowerCase()];
         queue.setRepeatMode(loopMode);
         
         const modeText = MusicEmbedBuilder.getLoopModeText(loopMode);
-        const embed = MusicEmbedBuilder.createSuccessEmbed(`🔁 Mode de répétition : **${modeText}**`);
+        const embed = MusicEmbedBuilder.createSuccessEmbed(`ðŸ” Mode de répétition : **${modeText}**`);
         await this.safeReply(interaction, { embeds: [embed] });
     }
 
@@ -675,18 +675,18 @@ class QueueManager {
         
         if (!queue) {
             const embed = MusicEmbedBuilder.createErrorEmbed('Le bot n\'est pas connecté !');
-            return this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+            return this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.node.stop();
 
-        const embed = MusicEmbedBuilder.createSuccessEmbed('👋 Le bot a été déconnecté du salon vocal.');
+        const embed = MusicEmbedBuilder.createSuccessEmbed('ðŸ‘‹ Le bot a été déconnecté du salon vocal.');
         await this.safeReply(interaction, { embeds: [embed] });
     }
 
     async sendErrorEmbed(interaction, message) {
         const embed = MusicEmbedBuilder.createErrorEmbed(message);
-        return await this.safeReply(interaction, { embeds: [embed], flags: 64 // MessageFlags.Ephemeral });
+        return await this.safeReply(interaction, { embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
     }
 
     // Méthode utilitaire pour répondre de manière sécurisée aux interactions
@@ -698,12 +698,12 @@ class QueueManager {
                 return await interaction.reply(options);
             }
         } catch (error) {
-            console.error('❌ [REPLY_ERROR] Erreur lors de la réponse à l\'interaction:');
-            console.error(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-            console.error(`   🏠 Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
-            console.error(`   📍 Canal: ${interaction.channel?.name || 'Inconnu'} (${interaction.channel?.id || 'N/A'})`);
-            console.error(`   🔄 État: replied=${interaction.replied}, deferred=${interaction.deferred}`);
-            console.error(`   ⚠️ Erreur:`, error);
+            console.error('âŒ [REPLY_ERROR] Erreur lors de la réponse Ã  l\'interaction:');
+            console.error(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+            console.error(`   ðŸ  Serveur: ${interaction.guild?.name || 'DM'} (${interaction.guild?.id || 'N/A'})`);
+            console.error(`   ðŸ“ Canal: ${interaction.channel?.name || 'Inconnu'} (${interaction.channel?.id || 'N/A'})`);
+            console.error(`   ðŸ”„ Ã‰tat: replied=${interaction.replied}, deferred=${interaction.deferred}`);
+            console.error(`   âš ï¸ Erreur:`, error);
             // Tentative de fallback avec followUp si possible
             if (!interaction.replied && !interaction.deferred) {
                 try {
@@ -712,9 +712,9 @@ class QueueManager {
                         flags: 64 // MessageFlags.Ephemeral 
                     });
                 } catch (fallbackError) {
-                    console.error('❌ [FALLBACK_ERROR] Erreur lors du fallback de réponse:');
-                    console.error(`   👤 Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
-                    console.error(`   ⚠️ Erreur:`, fallbackError);
+                    console.error('âŒ [FALLBACK_ERROR] Erreur lors du fallback de réponse:');
+                    console.error(`   ðŸ‘¤ Utilisateur: ${interaction.user.tag} (${interaction.user.id})`);
+                    console.error(`   âš ï¸ Erreur:`, fallbackError);
                 }
             }
         }
@@ -769,7 +769,7 @@ class QueueManager {
             // Optionnel : sauvegarder dans un fichier de logs
             // fs.appendFileSync('music-logs.txt', JSON.stringify(logEntry) + '\n');
         } catch (error) {
-            console.error('❌ Erreur lors de l\'écriture du log musical:', error);
+            console.error('âŒ Erreur lors de l\'écriture du log musical:', error);
         }
     }
 
@@ -799,17 +799,17 @@ class QueueManager {
                 .setColor('#00ff00')
                 .addFields(
                     {
-                        name: '👤 Utilisateur',
+                        name: 'ðŸ‘¤ Utilisateur',
                         value: `<@${user.id}>`,
                         inline: true
                     },
                     {
-                        name: '🎯 Action',
+                        name: 'ðŸŽ¯ Action',
                         value: action,
                         inline: true
                     },
                     {
-                        name: '📝 Détails',
+                        name: 'ðŸ“ Détails',
                         value: details || 'Aucun détail',
                         inline: false
                     }
@@ -822,12 +822,12 @@ class QueueManager {
 
             await logChannel.send({ embeds: [embed] });
         } catch (error) {
-            console.error('❌ Erreur lors de l\'envoi du log musical:', error);
+            console.error('âŒ Erreur lors de l\'envoi du log musical:', error);
         }
     }
 
     /**
-     * Vérifie si une musique est déjà dans la queue pour éviter les doublons
+     * Vérifie si une musique est déjÃ  dans la queue pour éviter les doublons
      */
     isDuplicateTrack(queue, newTrack) {
         // Vérifier la musique en cours
@@ -847,7 +847,7 @@ class QueueManager {
         
         if (!queue || !queue.currentTrack) {
             return interaction.reply({
-                content: '❌ Aucune musique en cours de lecture !',
+                content: 'âŒ Aucune musique en cours de lecture !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -855,14 +855,14 @@ class QueueManager {
         const member = interaction.member;
         if (!member.voice.channel) {
             return interaction.reply({
-                content: '❌ Vous devez être dans un salon vocal !',
+                content: 'âŒ Vous devez être dans un salon vocal !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
 
         if (queue.channel.id !== member.voice.channel.id) {
             return interaction.reply({
-                content: '❌ Vous devez être dans le même salon vocal que le bot !',
+                content: 'âŒ Vous devez être dans le même salon vocal que le bot !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -876,7 +876,7 @@ class QueueManager {
             
             const embed = new EmbedBuilder()
                 .setColor('#4CAF50')
-                .setTitle('⏪ Retour en arrière')
+                .setTitle('âª Retour en arrière')
                 .setDescription(`Retour de **${seconds}** secondes dans la musique`)
                 .addFields({
                     name: '🎵 Musique',
@@ -890,9 +890,9 @@ class QueueManager {
             // Log de l'action
             this.logMusicAction(interaction.user, 'Retour en arrière', `${seconds} secondes`);
         } catch (error) {
-            console.error('❌ Erreur lors du retour en arrière:', error);
+            console.error('âŒ Erreur lors du retour en arrière:', error);
             await interaction.reply({
-                content: '❌ Impossible de reculer dans cette musique !',
+                content: 'âŒ Impossible de reculer dans cette musique !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -906,7 +906,7 @@ class QueueManager {
         
         if (!queue || !queue.currentTrack) {
             return interaction.reply({
-                content: '❌ Aucune musique en cours de lecture !',
+                content: 'âŒ Aucune musique en cours de lecture !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -914,14 +914,14 @@ class QueueManager {
         const member = interaction.member;
         if (!member.voice.channel) {
             return interaction.reply({
-                content: '❌ Vous devez être dans un salon vocal !',
+                content: 'âŒ Vous devez être dans un salon vocal !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
 
         if (queue.channel.id !== member.voice.channel.id) {
             return interaction.reply({
-                content: '❌ Vous devez être dans le même salon vocal que le bot !',
+                content: 'âŒ Vous devez être dans le même salon vocal que le bot !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -936,7 +936,7 @@ class QueueManager {
             
             const embed = new EmbedBuilder()
                 .setColor('#4CAF50')
-                .setTitle('⏩ Avance rapide')
+                .setTitle('â© Avance rapide')
                 .setDescription(`Avance de **${seconds}** secondes dans la musique`)
                 .addFields({
                     name: '🎵 Musique',
@@ -950,9 +950,9 @@ class QueueManager {
             // Log de l'action
             this.logMusicAction(interaction.user, 'Avance rapide', `${seconds} secondes`);
         } catch (error) {
-            console.error('❌ Erreur lors de l\'avance rapide:', error);
+            console.error('âŒ Erreur lors de l\'avance rapide:', error);
             await interaction.reply({
-                content: '❌ Impossible d\'avancer dans cette musique !',
+                content: 'âŒ Impossible d\'avancer dans cette musique !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -966,7 +966,7 @@ class QueueManager {
         
         if (!queue || !queue.currentTrack) {
             return interaction.reply({
-                content: '❌ Aucune musique en cours de lecture !',
+                content: 'âŒ Aucune musique en cours de lecture !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -974,14 +974,14 @@ class QueueManager {
         const member = interaction.member;
         if (!member.voice.channel) {
             return interaction.reply({
-                content: '❌ Vous devez être dans un salon vocal !',
+                content: 'âŒ Vous devez être dans un salon vocal !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
 
         if (queue.channel.id !== member.voice.channel.id) {
             return interaction.reply({
-                content: '❌ Vous devez être dans le même salon vocal que le bot !',
+                content: 'âŒ Vous devez être dans le même salon vocal que le bot !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -997,14 +997,14 @@ class QueueManager {
             }
 
             const filterNames = {
-                'bassboost': 'Bass Boost 🔊',
-                'vaporwave': 'Ralenti (Vaporwave) 🌊',
-                'nightcore': 'Accéléré (Nightcore) ⚡'
+                'bassboost': 'Bass Boost ðŸ”Š',
+                'vaporwave': 'Ralenti (Vaporwave) ðŸŒŠ',
+                'nightcore': 'Accéléré (Nightcore) âš¡'
             };
 
             const displayName = filterNames[filterName] || filterName;
             const status = isEnabled ? 'désactivé' : 'activé';
-            const emoji = isEnabled ? '❌' : '✅';
+            const emoji = isEnabled ? 'âŒ' : '✅';
 
             const embed = new EmbedBuilder()
                 .setColor(isEnabled ? '#ff6b6b' : '#4CAF50')
@@ -1022,9 +1022,9 @@ class QueueManager {
             // Log de l'action
             this.logMusicAction(interaction.user, `Filtre ${status}`, displayName);
         } catch (error) {
-            console.error(`❌ Erreur lors de l'application du filtre ${filterName}:`, error);
+            console.error(`âŒ Erreur lors de l'application du filtre ${filterName}:`, error);
             await interaction.reply({
-                content: '❌ Impossible d\'appliquer ce filtre !',
+                content: 'âŒ Impossible d\'appliquer ce filtre !',
                 flags: 64 // MessageFlags.Ephemeral
             });
         }
@@ -1046,3 +1046,4 @@ class QueueManager {
 }
 
 export default QueueManager;
+

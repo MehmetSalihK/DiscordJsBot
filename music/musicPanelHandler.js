@@ -14,14 +14,13 @@ class MusicPanelHandler {
         if (!interaction.isButton()) return;
         if (!interaction.customId.startsWith('music_')) return;
 
-        await interaction.deferReply({ flags: 64 // MessageFlags.Ephemeral });
+        await interaction.deferReply({ flags: 64 }); // MessageFlags.Ephemeral
 
         const queue = this.queueManager.player.nodes.get(interaction.guild.id);
         if (!queue || !queue.currentTrack) {
             return await interaction.editReply({
                 content: '❌ Aucune musique n\'est en cours de lecture.',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         // Vérifier si l'utilisateur est dans le même canal vocal
@@ -31,8 +30,7 @@ class MusicPanelHandler {
         if (!memberChannel || memberChannel.id !== botChannel.id) {
             return await interaction.editReply({
                 content: '❌ Vous devez être dans le même canal vocal que le bot.',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         try {
@@ -70,15 +68,13 @@ class MusicPanelHandler {
                 default:
                     await interaction.editReply({
                         content: '❌ Action non reconnue.',
-                        flags: 64 // MessageFlags.Ephemeral
-                    });
+                        flags: 64 }); // MessageFlags.Ephemeral
             }
         } catch (error) {
             console.error('❌ Erreur lors du traitement de l\'interaction du panel:', error);
             await interaction.editReply({
                 content: '❌ Une erreur est survenue lors de l\'exécution de cette action.',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
     }
 
@@ -86,8 +82,7 @@ class MusicPanelHandler {
         if (queue.node.isPaused()) {
             return await interaction.editReply({
                 content: '⏸️ La musique est déjà en pause.',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.node.pause();
@@ -96,16 +91,14 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: '⏸️ Musique mise en pause.',
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleResume(interaction, queue) {
         if (!queue.node.isPaused()) {
             return await interaction.editReply({
                 content: '▶️ La musique n\'est pas en pause.',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.node.resume();
@@ -114,8 +107,7 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: '▶️ Musique reprise.',
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleSkip(interaction, queue) {
@@ -125,8 +117,7 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: `⏭️ Musique **${currentTrack.title}** passée.`,
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleStop(interaction, queue) {
@@ -136,8 +127,7 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: '⏹️ Lecture arrêtée et file d\'attente vidée.',
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleDisconnect(interaction, queue) {
@@ -147,8 +137,7 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: '❌ Bot déconnecté du canal vocal.',
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleLoop(interaction, queue) {
@@ -179,8 +168,7 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: modeText,
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleVolumeUp(interaction, queue) {
@@ -190,8 +178,7 @@ class MusicPanelHandler {
         if (currentVolume >= 100) {
             return await interaction.editReply({
                 content: '🔊 Le volume est déjà au maximum (100%).',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.node.setVolume(newVolume);
@@ -200,8 +187,7 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: `🔊 Volume augmenté à ${newVolume}%.`,
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleVolumeDown(interaction, queue) {
@@ -211,8 +197,7 @@ class MusicPanelHandler {
         if (currentVolume <= 0) {
             return await interaction.editReply({
                 content: '🔉 Le volume est déjà au minimum (0%).',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         queue.node.setVolume(newVolume);
@@ -221,8 +206,7 @@ class MusicPanelHandler {
         
         await interaction.editReply({
             content: `🔉 Volume diminué à ${newVolume}%.`,
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     async handleMute(interaction, queue) {
@@ -237,8 +221,7 @@ class MusicPanelHandler {
             
             await interaction.editReply({
                 content: `🔊 Son réactivé. Volume: ${newVolume}%.`,
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         } else {
             // Mute - sauvegarder le volume actuel et mettre à 0
             queue.previousVolume = currentVolume;
@@ -248,8 +231,7 @@ class MusicPanelHandler {
             
             await interaction.editReply({
                 content: '🔇 Son coupé.',
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
     }
 
@@ -270,8 +252,7 @@ class MusicPanelHandler {
 
             return await interaction.editReply({
                 embeds: [embed],
-                flags: 64 // MessageFlags.Ephemeral
-            });
+                flags: 64 }); // MessageFlags.Ephemeral
         }
 
         const embed = new EmbedBuilder()
@@ -304,8 +285,7 @@ class MusicPanelHandler {
 
         await interaction.editReply({
             embeds: [embed],
-            flags: 64 // MessageFlags.Ephemeral
-        });
+            flags: 64 }); // MessageFlags.Ephemeral
     }
 
     /**
@@ -333,6 +313,9 @@ class MusicPanelHandler {
 }
 
 export default MusicPanelHandler;
+
+
+
 
 
 
