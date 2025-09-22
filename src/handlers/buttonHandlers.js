@@ -252,7 +252,7 @@ export async function handleXPModal(interaction) {
     await interaction.reply({ embeds: [embed] });
   } catch (e) {
     const { createErrorEmbed } = await import('../utils/embeds.js');
-    await interaction.reply({ embeds: [createErrorEmbed('Erreur', 'JSON invalide pour les paliers.')], ephemeral: true });
+    await interaction.reply({ embeds: [createErrorEmbed('Erreur', 'JSON invalide pour les paliers.')], flags: 64 }); // MessageFlags.Ephemeral
   }
 }
 

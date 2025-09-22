@@ -7,6 +7,8 @@ import { logger } from './utils/logger.js';
 import { loadPrefixCommands, loadSlashCommands } from './loaders/commandLoader.js';
 import { getPrefix, setGuildConfig } from './store/configStore.js';
 import { handleHelpButton, handleLogsButton, handleServerInfoButton, handleXPButton, handleXPModal } from './handlers/buttonHandlers.js';
+import QueueManager from '../music/queueManager.js';
+import { MusicButtonHandler } from '../music/buttonHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,6 +53,10 @@ async function main() {
   client.prefixCommands = new Collection();
   client.slashCommands = new Collection();
 
+  // Initialisation du système de musique
+  client.queueManager = new QueueManager(client);
+  client.musicButtonHandler = new MusicButtonHandler(client);
+
   // Charger les gestionnaires d'événements
   const eventsPath = path.join(__dirname, 'events');
   const eventFiles = (await fs.readdir(eventsPath)).filter(file => file.endsWith('.js'));
@@ -93,6 +99,19 @@ async function main() {
         if (id.startsWith('autorole_')) {
           const { handleAutoRoleInteraction } = await import('./modules/autorole/interactions.js');
           return handleAutoRoleInteraction(interaction);
+        }
+        
+        // Gestion des boutons de réaction via le gestionnaire dédié
+        if (id.startsWith('buttonreact_')) {
+          const { handleButtonReactInteraction } = await import('./modules/buttonreact/interactions.js');
+          await handleButtonReactInteraction(interaction);
+          return;
+        }
+
+        // Gestion des boutons de musique
+        if (id.startsWith('music_') || id.startsWith('queue_') || id.startsWith('search_')) {
+          await client.musicButtonHandler.handleButtonInteraction(interaction);
+          return;
         }
       } else if (interaction.isStringSelectMenu()) {
         // Gestion des menus de sélection via le gestionnaire dédié
@@ -164,3 +183,5 @@ async function main() {
 }
 
 main();
+
+

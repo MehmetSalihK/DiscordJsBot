@@ -12,7 +12,7 @@ export default {
   async execute(interaction) {
     try {
       if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ModerateMembers)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission d'avertir des membres.")], ephemeral: true });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission d'avertir des membres.")], flags: 64 // MessageFlags.Ephemeral });
       }
       const user = interaction.options.getUser('utilisateur', true);
       const reason = interaction.options.getString('raison') || 'Aucune raison fournie';
@@ -24,7 +24,10 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /warn:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'envoi de l'avertissement.")] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'envoi de l'avertissement.")], ephemeral: true });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'envoi de l'avertissement.")], flags: 64 // MessageFlags.Ephemeral });
     }
   },
 };
+
+
+

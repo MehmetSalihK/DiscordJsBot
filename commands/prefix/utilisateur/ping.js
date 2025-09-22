@@ -14,3 +14,6 @@ export default {
     await sent.edit({ content: '', embeds: [embed] });
   },
 };
+
+
+

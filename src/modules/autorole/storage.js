@@ -166,3 +166,5 @@ export function cleanInvalidRoles(guildId, validRoleIds) {
 export function getAllConfigs() {
   return loadAutoRoleData();
 }
+
+

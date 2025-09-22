@@ -31,3 +31,5 @@ export function setPrefix(guildId, prefix) {
   writeFileSync(storePath, JSON.stringify(obj, null, 2), 'utf-8');
   return prefix;
 }
+
+

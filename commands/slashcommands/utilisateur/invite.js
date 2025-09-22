@@ -10,7 +10,7 @@ export default {
   async execute(interaction) {
     try {
       if (!config.clientId) {
-        return interaction.reply({ embeds: [createErrorEmbed('Configuration', 'CLIENT_ID manquant dans la configuration.')], ephemeral: true });
+        return interaction.reply({ embeds: [createErrorEmbed('Configuration', 'CLIENT_ID manquant dans la configuration.')], flags: 64 // MessageFlags.Ephemeral });
       }
       const permissions = 8; // Administrateur
       const url = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(config.clientId)}&scope=bot%20applications.commands&permissions=${permissions}`;
@@ -34,7 +34,10 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /invite:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la génération du lien d'invitation.")] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la génération du lien d'invitation.")], ephemeral: true });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la génération du lien d'invitation.")], flags: 64 // MessageFlags.Ephemeral });
     }
   },
 };
+
+
+

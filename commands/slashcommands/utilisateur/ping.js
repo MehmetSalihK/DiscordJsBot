@@ -17,3 +17,6 @@ export default {
     await interaction.editReply({ content: '', embeds: [embed] });
   },
 };
+
+
+

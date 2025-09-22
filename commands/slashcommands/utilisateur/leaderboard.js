@@ -30,7 +30,10 @@ export default {
       return interaction.reply({ embeds: [emb] });
     } catch (e) {
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', 'Impossible d\'afficher le classement.')] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Impossible d\'afficher le classement.')], ephemeral: true });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Impossible d\'afficher le classement.')], flags: 64 // MessageFlags.Ephemeral });
     }
   }
 };
+
+
+

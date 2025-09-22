@@ -118,3 +118,5 @@ export async function handleVoiceStateUpdate(oldState, newState) {
     await sendVoiceLog(guild.client, guild.id, vEmb).catch(() => {});
   }
 }
+
+

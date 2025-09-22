@@ -43,7 +43,10 @@ export default {
       return interaction.reply({ embeds: [emb] });
     } catch (e) {
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', 'Impossible d\'afficher le rang.')] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Impossible d\'afficher le rang.')], ephemeral: true });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', 'Impossible d\'afficher le rang.')], flags: 64 // MessageFlags.Ephemeral });
     }
   }
 };
+
+
+

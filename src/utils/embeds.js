@@ -40,3 +40,5 @@ export function createErrorEmbed(title, description, extra = {}) {
     .setTimestamp()
     .setFooter(extra.footer ? { text: extra.footer } : null);
 }
+
+

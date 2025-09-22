@@ -4,3 +4,5 @@ export const logger = {
   error: (...args) => console.error('[ERREUR]', ...args),
   success: (...args) => console.log('[SUCCÈS]', ...args),
 };
+
+

@@ -14,7 +14,10 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /avatar:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply("Une erreur est survenue lors de la récupération de l'avatar.");
-      return interaction.reply({ content: "Une erreur est survenue lors de la récupération de l'avatar.", ephemeral: true });
+      return interaction.reply({ content: "Une erreur est survenue lors de la récupération de l'avatar.", flags: 64 // MessageFlags.Ephemeral });
     }
   },
 };
+
+
+

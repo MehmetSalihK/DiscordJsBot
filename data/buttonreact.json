@@ -1,0 +1,139 @@
+{
+  "guilds": {
+    "780214694328795136": {
+      "panels": {
+        "onay_panel": {
+          "title": "🎯 Système d'Approbation",
+          "description": "Cliquez sur le bouton pour obtenir le rôle Bebegler !",
+          "buttons": [
+            {
+              "roleId": "780507687900807218",
+              "label": "Obtenir Bebegler",
+              "style": "Primary",
+              "emoji": "✅"
+            }
+          ]
+        },
+        "iliski_panel": {
+          "title": "💕 Statut Relationnel",
+          "description": "Choisissez votre statut relationnel :",
+          "buttons": [
+            {
+              "roleId": "840435354150764564",
+              "label": "Célibataire",
+              "style": "Secondary",
+              "emoji": "💔"
+            },
+            {
+              "roleId": "840435383199858730",
+              "label": "Seul(e)",
+              "style": "Secondary",
+              "emoji": "😔"
+            },
+            {
+              "roleId": "840435498353950740",
+              "label": "En couple",
+              "style": "Success",
+              "emoji": "💕"
+            }
+          ]
+        },
+        "cinsiyet_panel": {
+          "title": "⚧️ Genre",
+          "description": "Sélectionnez votre genre :",
+          "buttons": [
+            {
+              "roleId": "840435120972496948",
+              "label": "Non-binaire",
+              "style": "Secondary",
+              "emoji": "⚧️"
+            },
+            {
+              "roleId": "840434769703338005",
+              "label": "Homme",
+              "style": "Primary",
+              "emoji": "♂️"
+            },
+            {
+              "roleId": "840435031071916052",
+              "label": "Femme",
+              "style": "Danger",
+              "emoji": "♀️"
+            }
+          ]
+        },
+        "age_panel": {
+          "title": "🎂 Tranche d'âge",
+          "description": "Indiquez votre tranche d'âge :",
+          "buttons": [
+            {
+              "roleId": "840435326652121089",
+              "label": "Autre",
+              "style": "Secondary",
+              "emoji": "❓"
+            },
+            {
+              "roleId": "840435182930755596",
+              "label": "+18 ans",
+              "style": "Success",
+              "emoji": "🔞"
+            },
+            {
+              "roleId": "840435264848658494",
+              "label": "-18 ans",
+              "style": "Primary",
+              "emoji": "👶"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "legacy_config": {
+    "butonrole": {
+      "iliski": {
+        "Uc": "840435354150764564",
+        "Alone": "840435383199858730",
+        "Lovers": "840435498353950740"
+      },
+      "cinsiyet": {
+        "Bir": "840435120972496948",
+        "Bay": "840434769703338005",
+        "Bayan": "840435031071916052"
+      },
+      "yaş": {
+        "Iki": "840435326652121089",
+        "arti18": "840435182930755596",
+        "eksi18": "840435264848658494"
+      },
+      "Onay": {
+        "Dört": "1076288586191740999",
+        "Onay": "1075969444163096676",
+        "Bebegler": "780507687900807218"
+      },
+      "color": {
+        "siyah": "ROL İD' LERİNİ GİRİN",
+        "beyaz": "ROL İD' LERİNİ GİRİN",
+        "kırmızı": "ROL İD' LERİNİ GİRİN",
+        "yesil": "ROL İD' LERİNİ GİRİN",
+        "mor": "ROL İD' LERİNİ GİRİN",
+        "mavi": "ROL İD' LERİNİ GİRİN",
+        "pembe": "ROL İD' LERİNİ GİRİN",
+        "sarı": "ROL İD' LERİNİ GİRİN",
+        "turuncu": "ROL İD' LERİNİ GİRİN"
+      }
+    },
+    "onay": [
+      {
+        "channel_id": "780214694328795136",
+        "message_id": "841177468315369503",
+        "reaction": [
+          {
+            "emoji_id": "840577522290262037",
+            "role_id": "780507687900807218"
+          }
+        ]
+      }
+    ]
+  }
+}

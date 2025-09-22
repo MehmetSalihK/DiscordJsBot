@@ -12,19 +12,19 @@ export default {
   async execute(interaction) {
     try {
       if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.BanMembers)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission de débannir des membres.")], ephemeral: true });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Vous n'avez pas la permission de débannir des membres.")], flags: 64 // MessageFlags.Ephemeral });
       }
       if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Je n'ai pas la permission de débannir des membres.")], ephemeral: true });
+        return interaction.reply({ embeds: [createErrorEmbed('Permission manquante', "Je n'ai pas la permission de débannir des membres.")], flags: 64 // MessageFlags.Ephemeral });
       }
 
       const userId = interaction.options.getString('user_id', true);
       const reason = interaction.options.getString('raison') || 'Aucune raison fournie';
 
       const bans = await interaction.guild.bans.fetch().catch(() => null);
-      if (!bans) return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Impossible de récupérer la liste des bannis.")], ephemeral: true });
+      if (!bans) return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Impossible de récupérer la liste des bannis.")], flags: 64 // MessageFlags.Ephemeral });
       const banEntry = bans.get(userId);
-      if (!banEntry) return interaction.reply({ embeds: [createErrorEmbed('Introuvable', "Cet utilisateur n'est pas banni ou l'ID est invalide.")], ephemeral: true });
+      if (!banEntry) return interaction.reply({ embeds: [createErrorEmbed('Introuvable', "Cet utilisateur n'est pas banni ou l'ID est invalide.")], flags: 64 // MessageFlags.Ephemeral });
 
       await interaction.guild.bans.remove(userId, reason);
       const emb = createSuccessEmbed('Débannissement', `L’utilisateur **${banEntry.user.tag}** a été débanni avec succès.\nRaison: ${reason}`);
@@ -33,7 +33,10 @@ export default {
     } catch (error) {
       console.error('[ERREUR] Slash /unban:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la tentative de débannissement.")] });
-      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la tentative de débannissement.")], ephemeral: true });
+      return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de la tentative de débannissement.")], flags: 64 // MessageFlags.Ephemeral });
     }
   },
 };
+
+
+

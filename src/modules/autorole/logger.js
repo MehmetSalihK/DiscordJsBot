@@ -174,3 +174,5 @@ export async function logInfo(guild, title, message, fields = []) {
   const embed = createLogEmbed('INFO', title, message, fields);
   await sendLog(guild, embed);
 }
+
+

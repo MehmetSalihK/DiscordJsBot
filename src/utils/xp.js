@@ -3,3 +3,5 @@ export function progressBar(current, target, size = 20) {
   const filled = Math.round(pct * size);
   return `【${'▓'.repeat(filled)}${'░'.repeat(size - filled)}】 ${(pct * 100).toFixed(0)}%`;
 }
+
+

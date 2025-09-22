@@ -990,3 +990,5 @@ async function handleCloseInteraction(interaction) {
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 }
+
+
