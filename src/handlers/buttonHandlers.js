@@ -3,13 +3,16 @@ import { createInfoEmbed, createSuccessEmbed, createErrorEmbed, Emojis } from '.
 import { getPrefix, setLogChannelId, toggleFeature, getGuildConfig, setGuildConfig } from '../store/configStore.js';
 import reactionRoleStore from '../store/reactionRoleStore.js';
 import reactionRoleLogger from '../utils/reactionRoleLogger.js';
+import messageXPHandler from '../utils/messageXpHandler.js';
+import voiceXPHandler from '../utils/voiceXpHandler.js';
+import XPCalculator from '../utils/xpCalculator.js';
 import fs from 'fs';
 import path from 'path';
 
 function buildHelpEmbed(client, guildId, page = 0, catPage = 0, commandType = 'slash') {
-  const categories = ['admin', 'moderateur', 'utilisateur', 'xp', 'music'];
-  const titles = ['🛠️ Commandes Administrateur', '🛡️ Commandes Modérateur', '👤 Commandes Utilisateur', '📈 Commandes XP', '🎵 Commandes Musique'];
-  const emojiTitle = ['🛠️', '🛡️', '👤', '📈', '🎵'];
+  const categories = ['admin', 'moderateur', 'utilisateur', 'music'];
+  const titles = ['🛠️ Commandes Administrateur', '🛡️ Commandes Modérateur', '👤 Commandes Utilisateur', '🎵 Commandes Musique'];
+  const emojiTitle = ['🛠️', '🛡️', '👤', '🎵'];
   const cat = categories[page] || 'utilisateur';
 
   const isSlash = commandType === 'slash';
@@ -58,21 +61,7 @@ function buildHelpEmbed(client, guildId, page = 0, catPage = 0, commandType = 's
   };
 }
 
-// ============ Voice Logs Config (minimal panel) ============
 
-export function buildVoiceLogsInitial(guild) {
-  const conf = getGuildConfig(guild.id);
-  const x = conf?.xpSystem || {};
-  const lines = [
-    `Logs vocaux: ${(x.voiceLogs?.active !== false) ? 'Activés ✅' : 'Désactivés ❌'}`,
-    `Salon logs vocaux: ${x.voiceLogs?.logChannelId ? '<#' + x.voiceLogs.logChannelId + '>' : 'Non défini'}`,
-  ];
-  const embed = createInfoEmbed('🎙️ Configuration des logs vocaux', lines.join('\n'));
-  const setVoiceLogsHere = new ButtonBuilder().setCustomId('xp_voice_logs_here').setLabel('Définir ce salon').setEmoji('🎙️').setStyle(ButtonStyle.Primary);
-  const toggleVoiceLogs = new ButtonBuilder().setCustomId('xp_voice_logs_toggle').setLabel((x?.voiceLogs?.active !== false) ? 'Désactiver' : 'Activer').setEmoji('📡').setStyle(ButtonStyle.Secondary);
-  const row = new ActionRowBuilder().addComponents(setVoiceLogsHere, toggleVoiceLogs);
-  return { embed, components: [row] };
-}
 
 function helpButtons(page = 0, totalPages = 1, catPage = 0, commandType = 'slash') {
   // Navigation entre catégories (gauche/droite)
@@ -109,19 +98,13 @@ function helpButtons(page = 0, totalPages = 1, catPage = 0, commandType = 'slash
     .setEmoji('👤')
     .setStyle(page === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
     
-  const catXP = new ButtonBuilder()
-    .setCustomId('help_cat_xp')
-    .setLabel('XP')
-    .setEmoji('📈')
-    .setStyle(page === 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    
   const catMusic = new ButtonBuilder()
     .setCustomId('help_cat_music')
     .setLabel('Musique')
     .setEmoji('🎵')
-    .setStyle(page === 4 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    .setStyle(page === 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
-  const row2 = new ActionRowBuilder().addComponents(catAdmin, catMod, catUser, catXP, catMusic);
+  const row2 = new ActionRowBuilder().addComponents(catAdmin, catMod, catUser, catMusic);
   
   const rows = [row1, row2];
   
@@ -228,7 +211,7 @@ export async function handleHelpButton(interaction, client) {
           },
           {
             name: '✨ Fonctionnalités principales',
-            value: '• Système de modération complet\n• Musique et divertissement\n• Système XP et niveaux\n• Rôles RGB dynamiques\n• Configuration personnalisée',
+            value: '• Système de modération complet\n• Musique et divertissement\n• Rôles RGB dynamiques\n• Configuration personnalisée',
             inline: false
           }
         )
@@ -289,7 +272,7 @@ export async function handleHelpButton(interaction, client) {
       const currentEmbed = interaction.message.embeds[0];
       let currentPage = 0;
       if (currentEmbed && currentEmbed.footer && currentEmbed.footer.text) {
-        const footerMatch = currentEmbed.footer.text.match(/Page (\d+)\/(\d+)/);
+        const footerMatch = currentEmbed.footer.text.match(/📄 Page (\d+)\/(\d+)/);
         if (footerMatch) {
           currentPage = parseInt(footerMatch[1]) - 1; // Convertir en index 0-based
         }
@@ -301,8 +284,8 @@ export async function handleHelpButton(interaction, client) {
       }
       
       const category = availableCategories[currentPage];
-      const embed = createCategoryEmbed(category, prefix, client, currentPage + 1, availableCategories.length);
-      const components = createNavigationButtons(currentPage, availableCategories.length, prefix);
+      const embed = createCategoryEmbed(category, prefix, client, currentPage, availableCategories.length);
+      const components = createNavigationButtons(currentPage, availableCategories.length, hasAdminPerms, hasModPerms);
       
       await interaction.update({
         embeds: [embed],
@@ -311,33 +294,68 @@ export async function handleHelpButton(interaction, client) {
       return;
     }
 
+    if (id === 'help_all_commands') {
+      // Afficher toutes les commandes dans un embed
+      const allCommandsEmbed = new EmbedBuilder()
+        .setColor('#00ff88')
+        .setTitle('📋 **Toutes les Commandes Disponibles**')
+        .setDescription('```yaml\nVoici la liste complète de toutes les commandes disponibles :\n```')
+        .setThumbnail(client.user.displayAvatarURL({ dynamic: true, size: 256 }))
+        .setTimestamp();
+
+      const availableCategories = getAvailableCategories(hasAdminPerms, hasModPerms);
+      
+      availableCategories.forEach(categoryKey => {
+        const category = CATEGORIES[categoryKey];
+        let commandsList = '';
+        category.commands.forEach(cmd => {
+          commandsList += `• \`/${cmd.name}\` - ${cmd.description}\n`;
+        });
+        
+        allCommandsEmbed.addFields({
+          name: `${category.emoji} **${category.name}**`,
+          value: commandsList || 'Aucune commande disponible',
+          inline: false
+        });
+      });
+
+      allCommandsEmbed.setFooter({
+        text: `💡 Utilisez /help pour plus de détails • ${client.user.username}`,
+        iconURL: client.user.displayAvatarURL({ dynamic: true, size: 64 })
+      });
+
+      await interaction.reply({
+        embeds: [allCommandsEmbed],
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Gestion des boutons de navigation première/dernière page
+    if (id.startsWith('help_nav_first_')) {
+      currentPage = 0;
+    } else if (id.startsWith('help_nav_last_')) {
+      const availableCategories = getAvailableCategories(hasAdminPerms, hasModPerms);
+      currentPage = availableCategories.length - 1;
+    }
+
     // Gestion de la pagination
     const availableCategories = getAvailableCategories(hasAdminPerms, hasModPerms);
     let currentPage = 0;
 
-    // Extraire le numéro de page depuis l'ID du bouton
-    if (id.startsWith('help_page_')) {
-      currentPage = parseInt(id.split('_')[2]) || 0;
-    } else if (id.startsWith('help_nav_prev_')) {
-      // Récupérer la page actuelle depuis l'embed existant
-      const currentEmbed = interaction.message.embeds[0];
-      if (currentEmbed && currentEmbed.footer && currentEmbed.footer.text) {
-        const footerMatch = currentEmbed.footer.text.match(/Page (\d+)\/(\d+)/);
-        if (footerMatch) {
-          const currentPageFromFooter = parseInt(footerMatch[1]);
-          currentPage = Math.max(0, currentPageFromFooter - 1 - 1); // -1 pour convertir en index 0-based, -1 pour page précédente
-        }
-      }
+    // Extraire le numéro de page depuis l'ID du bouton (format: help_nav_next_currentPage_hasAdmin_hasMod)
+    if (id.startsWith('help_nav_prev_')) {
+      const parts = id.split('_');
+      const pageFromId = parseInt(parts[3]) || 0;
+      currentPage = Math.max(0, pageFromId - 1);
     } else if (id.startsWith('help_nav_next_')) {
-      // Récupérer la page actuelle depuis l'embed existant
-      const currentEmbed = interaction.message.embeds[0];
-      if (currentEmbed && currentEmbed.footer && currentEmbed.footer.text) {
-        const footerMatch = currentEmbed.footer.text.match(/Page (\d+)\/(\d+)/);
-        if (footerMatch) {
-          const currentPageFromFooter = parseInt(footerMatch[1]);
-          currentPage = Math.min(availableCategories.length - 1, currentPageFromFooter - 1 + 1); // -1 pour convertir en index 0-based, +1 pour page suivante
-        }
-      }
+      const parts = id.split('_');
+      const pageFromId = parseInt(parts[3]) || 0;
+      currentPage = Math.min(availableCategories.length - 1, pageFromId + 1);
+    } else if (id.startsWith('help_nav_first_')) {
+      currentPage = 0;
+    } else if (id.startsWith('help_nav_last_')) {
+      currentPage = availableCategories.length - 1;
     }
 
     // Vérifier que la page est valide
@@ -347,8 +365,8 @@ export async function handleHelpButton(interaction, client) {
 
     // Créer l'embed pour la page demandée
     const category = availableCategories[currentPage];
-    const embed = createCategoryEmbed(category, prefix, client, currentPage + 1, availableCategories.length);
-    const components = createNavigationButtons(currentPage, availableCategories.length, prefix);
+    const embed = createCategoryEmbed(category, prefix, client, currentPage, availableCategories.length);
+    const components = createNavigationButtons(currentPage, availableCategories.length, hasAdminPerms, hasModPerms);
 
     // Mettre à jour le message
     await interaction.update({
@@ -359,7 +377,7 @@ export async function handleHelpButton(interaction, client) {
 
 
   } catch (error) {
-    console.error('❌ [ERREUR] handleHelpButton:', error);
+    // Erreur dans handleHelpButton
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ Une erreur est survenue lors du traitement de votre demande.',
@@ -414,127 +432,9 @@ export function buildLogsInitial(guild) {
   return { embed, components: logsButtons(conf) };
 }
 
-// ============ XP Config (interactive) ============
 
-function buildXPButtons(conf, guild) {
-  const activeBtn = new ButtonBuilder().setCustomId('xp_toggle').setLabel(conf?.xpSystem?.active ? 'Désactiver' : 'Activer').setEmoji(conf?.xpSystem?.active ? '📴' : '✅').setStyle(ButtonStyle.Primary);
-  const msgDec = new ButtonBuilder().setCustomId('xp_msg_dec').setLabel('-1 msg XP').setStyle(ButtonStyle.Secondary);
-  const msgInc = new ButtonBuilder().setCustomId('xp_msg_inc').setLabel('+1 msg XP').setStyle(ButtonStyle.Secondary);
-  const voiceDec = new ButtonBuilder().setCustomId('xp_voice_dec').setLabel('-5 vocal XP').setStyle(ButtonStyle.Secondary);
-  const voiceInc = new ButtonBuilder().setCustomId('xp_voice_inc').setLabel('+5 vocal XP').setStyle(ButtonStyle.Secondary);
-  const row1 = new ActionRowBuilder().addComponents(activeBtn, msgDec, msgInc, voiceDec, voiceInc);
 
-  const setAfkHere = new ButtonBuilder().setCustomId('xp_set_afk_here').setLabel('Ignorer ce salon (AFK)').setEmoji('😴').setStyle(ButtonStyle.Secondary);
-  const clearAfk = new ButtonBuilder().setCustomId('xp_clear_afk').setLabel('Ne rien ignorer').setStyle(ButtonStyle.Secondary);
-  const setLogsHere = new ButtonBuilder().setCustomId('xp_logs_here').setLabel('Définir ce salon pour logs (généraux)').setEmoji('📝').setStyle(ButtonStyle.Secondary);
-  const setXPLogsHere = new ButtonBuilder().setCustomId('xp_xplogs_here').setLabel('Définir ce salon pour logs XP').setEmoji('📑').setStyle(ButtonStyle.Secondary);
-  const toggleXPLogs = new ButtonBuilder().setCustomId('xp_xplogs_toggle').setLabel((conf?.xpSystem?.xpLogs?.active !== false) ? 'Désactiver logs XP' : 'Activer logs XP').setEmoji('📪').setStyle(ButtonStyle.Secondary);
-  const editLevels = new ButtonBuilder().setCustomId('xp_edit_levels').setLabel('Éditer paliers').setEmoji('🧮').setStyle(ButtonStyle.Secondary);
-  const setVoiceLogsHere = new ButtonBuilder().setCustomId('xp_voice_logs_here').setLabel('Définir ce salon pour logs vocaux').setEmoji('🎙️').setStyle(ButtonStyle.Secondary);
-  const toggleVoiceLogs = new ButtonBuilder().setCustomId('xp_voice_logs_toggle').setLabel((conf?.xpSystem?.voiceLogs?.active !== false) ? 'Désactiver logs vocaux' : 'Activer logs vocaux').setEmoji('📡').setStyle(ButtonStyle.Secondary);
-  const row2 = new ActionRowBuilder().addComponents(setAfkHere, clearAfk, setLogsHere, setXPLogsHere, toggleXPLogs);
-  const row3 = new ActionRowBuilder().addComponents(setVoiceLogsHere, toggleVoiceLogs);
-  const row4 = new ActionRowBuilder().addComponents(editLevels);
-  return [row1, row2, row3, row4];
-}
 
-function buildXPEmbed(guild, conf) {
-  const x = conf?.xpSystem || {};
-  const lines = [
-    `État: ${x.active !== false ? 'Activé ✅' : 'Désactivé ❌'}`,
-    `XP par message: **${x.messageXP ?? 1}**`,
-    `XP vocal / 5 min: **${x.voiceXPPer5Min ?? 10}**`,
-    `Logs (généraux): ${(conf?.logs?.active !== false) ? 'Activés ✅' : 'Désactivés ❌'}`,
-    `Logs XP: ${(x.xpLogs?.active !== false) ? 'Activés ✅' : 'Désactivés ❌'}`,
-    `Logs vocaux: ${(x.voiceLogs?.active !== false) ? 'Activés ✅' : 'Désactivés ❌'}`,
-    `Salon AFK ignoré: ${x.ignoreAfkChannelId ? '<#' + x.ignoreAfkChannelId + '>' : (guild.afkChannelId ? '(AFK par défaut: <#' + guild.afkChannelId + '>)' : 'Aucun')}`,
-    `Salon logs XP: ${x.xpLogs?.logChannelId ? '<#' + x.xpLogs.logChannelId + '>' : 'Non défini'}`,
-    `Salon logs vocaux: ${x.voiceLogs?.logChannelId ? '<#' + x.voiceLogs.logChannelId + '>' : 'Non défini'}`,
-  ];
-  return createInfoEmbed('⚙️ Configuration XP', lines.join('\n'));
-}
-
-export function buildXPConfigInitial(guild) {
-  const conf = getGuildConfig(guild.id);
-  const embed = buildXPEmbed(guild, conf);
-  const components = buildXPButtons(conf, guild);
-  return { embed, components };
-}
-
-export async function handleXPButton(interaction, client) {
-  const conf = getGuildConfig(interaction.guildId);
-  const id = interaction.customId;
-  const x = conf.xpSystem || { active: true, messageXP: 1, voiceXPPer5Min: 10 };
-  if (id === 'xp_toggle') {
-    x.active = !x.active;
-  } else if (id === 'xp_msg_inc') {
-    x.messageXP = Math.min(50, (x.messageXP || 1) + 1);
-  } else if (id === 'xp_msg_dec') {
-    x.messageXP = Math.max(0, (x.messageXP || 1) - 1);
-  } else if (id === 'xp_voice_inc') {
-    x.voiceXPPer5Min = Math.min(500, (x.voiceXPPer5Min || 10) + 5);
-  } else if (id === 'xp_voice_dec') {
-    x.voiceXPPer5Min = Math.max(0, (x.voiceXPPer5Min || 10) - 5);
-  } else if (id === 'xp_set_afk_here') {
-    x.ignoreAfkChannelId = interaction.channelId;
-  } else if (id === 'xp_clear_afk') {
-    x.ignoreAfkChannelId = null;
-  } else if (id === 'xp_logs_here') {
-    setLogChannelId(interaction.guildId, interaction.channelId);
-  } else if (id === 'xp_xplogs_here') {
-    x.xpLogs = { ...(x.xpLogs || {}), logChannelId: interaction.channelId };
-  } else if (id === 'xp_xplogs_toggle') {
-    const current = x.xpLogs?.active !== false;
-    x.xpLogs = { ...(x.xpLogs || {}), active: !current };
-  } else if (id === 'xp_voice_logs_here') {
-    x.voiceLogs = { ...(x.voiceLogs || {}), logChannelId: interaction.channelId };
-  } else if (id === 'xp_voice_logs_toggle') {
-    const current = x.voiceLogs?.active !== false;
-    x.voiceLogs = { ...(x.voiceLogs || {}), active: !current };
-  } else if (id === 'xp_edit_levels') {
-    const modal = new ModalBuilder()
-      .setCustomId('xp_levels_modal')
-      .setTitle('Éditer les paliers de niveaux');
-    const input = new TextInputBuilder()
-      .setCustomId('levels_json')
-      .setLabel('JSON des paliers (ex: {"1":500,"2":1000})')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true)
-      .setPlaceholder('{"1":500,"2":1000,"3":2000}');
-    const row = new ActionRowBuilder().addComponents(input);
-    modal.addComponents(row);
-    return interaction.showModal(modal);
-  }
-  setGuildConfig(interaction.guildId, { xpSystem: x });
-  const updated = getGuildConfig(interaction.guildId);
-  const embed = buildXPEmbed(interaction.guild, updated);
-  await interaction.update({ embeds: [embed], components: buildXPButtons(updated, interaction.guild) });
-}
-
-export async function handleXPModal(interaction) {
-  if (interaction.customId !== 'xp_levels_modal') return;
-  try {
-    const jsonStr = interaction.fields.getTextInputValue('levels_json');
-    const obj = JSON.parse(jsonStr);
-    // Validation simple: clés numériques positives, valeurs entières positives
-    const levels = {};
-    for (const [k, v] of Object.entries(obj)) {
-      const lv = Number(k);
-      const xp = Number(v);
-      if (!Number.isInteger(lv) || lv <= 0 || !Number.isInteger(xp) || xp <= 0) continue;
-      levels[String(lv)] = xp;
-    }
-    if (Object.keys(levels).length === 0) throw new Error('Paliers invalides');
-    const conf = getGuildConfig(interaction.guildId);
-    conf.xpSystem = { ...(conf.xpSystem || {}), levels };
-    setGuildConfig(interaction.guildId, { xpSystem: conf.xpSystem });
-    const embed = buildXPEmbed(interaction.guild, conf);
-    await interaction.reply({ embeds: [embed] });
-  } catch (e) {
-    const { createErrorEmbed } = await import('../utils/embeds.js');
-    await interaction.reply({ embeds: [createErrorEmbed('Erreur', 'JSON invalide pour les paliers.')], flags: 64 }); // MessageFlags.Ephemeral
-  }
-}
 
 // ============ Server Info (interactive) ============
 
@@ -697,7 +597,7 @@ export function buildReactionRolesPanel(guild) {
       config = JSON.parse(data);
     }
   } catch (error) {
-    console.error('Erreur lors de la lecture de la configuration des reaction roles:', error);
+    // Erreur lors de la lecture de la configuration des reaction roles
   }
 
   const guildConfig = config.filter(rule => rule.guildId === guild.id);
@@ -756,7 +656,7 @@ export async function handleReactionRoleButton(interaction, client) {
       config = JSON.parse(data);
     }
   } catch (error) {
-    console.error('Erreur lors de la lecture de la configuration:', error);
+    // Erreur lors de la lecture de la configuration
   }
 
   switch (customId) {
@@ -928,10 +828,10 @@ export async function handleReactionRoleButton(interaction, client) {
         try {
           await reactionRoleLogger.logReactionAdded(interaction.guild, interaction.user, addRole, addMessage, addEmoji);
         } catch (logError) {
-          console.error('Erreur lors du logging:', logError);
+          // Erreur lors du logging
         }
       } catch (error) {
-        console.error('Erreur lors de l\'ajout du ReactionRole:', error);
+        // Erreur lors de l'ajout du ReactionRole
         const embed = createErrorEmbed('❌ Erreur', 'Impossible d\'ajouter le ReactionRole. Vérifiez que cette configuration n\'existe pas déjà.');
         await interaction.reply({ embeds: [embed], flags: 64 });
       }
@@ -973,10 +873,10 @@ export async function handleReactionRoleButton(interaction, client) {
           const message = await interaction.channel.messages.fetch(removeMessageId);
           await reactionRoleLogger.logReactionRemoved(interaction.guild, interaction.user, null, message, removeEmoji);
         } catch (logError) {
-          console.error('Erreur lors du logging:', logError);
+          // Erreur lors du logging
         }
       } catch (error) {
-        console.error('Erreur lors de la suppression du ReactionRole:', error);
+        // Erreur lors de la suppression du ReactionRole
         const embed = createErrorEmbed('❌ Erreur', 'Impossible de supprimer le ReactionRole.');
         await interaction.reply({ embeds: [embed], flags: 64 });
       }
@@ -1036,7 +936,7 @@ export async function handleReactionRoleModal(interaction, client) {
       config = JSON.parse(data);
     }
   } catch (error) {
-    console.error('Erreur lors de la lecture de la configuration:', error);
+    // Erreur lors de la lecture de la configuration
   }
 
   switch (customId) {
@@ -1127,7 +1027,7 @@ export async function handleReactionRoleModal(interaction, client) {
           }
         }
       } catch (error) {
-        console.error('Erreur lors de la sauvegarde:', error);
+        // Erreur lors de la sauvegarde
         const embed = createErrorEmbed('❌ Erreur', 'Impossible de sauvegarder la configuration.');
         await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
       }
@@ -1195,7 +1095,7 @@ export async function handleReactionRoleModal(interaction, client) {
           }
         }
       } catch (error) {
-        console.error('Erreur lors de la sauvegarde:', error);
+        // Erreur lors de la sauvegarde
         const embed = createErrorEmbed('❌ Erreur', 'Impossible de sauvegarder la configuration.');
         await interaction.reply({ embeds: [embed], flags: 64 }); // MessageFlags.Ephemeral
       }
@@ -1416,10 +1316,10 @@ export async function handleReactionRoleModal(interaction, client) {
         const message = await interaction.channel.messages.fetch(messageId);
         await reactionRoleLogger.logMessageToggled(interaction.guild, interaction.user, message, newStatus);
       } catch (logError) {
-        console.error('Erreur lors du logging:', logError);
+        // Erreur lors du logging
       }
     } catch (error) {
-      console.error('Erreur toggle message:', error);
+      // Erreur toggle message
       await interaction.reply({
         embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue.')],
         flags: 64
@@ -1457,10 +1357,10 @@ export async function handleReactionRoleModal(interaction, client) {
         const role = interaction.guild.roles.cache.get(reactionRole.roleId);
         await reactionRoleLogger.logReactionToggled(interaction.guild, interaction.user, role, message, emoji, newStatus);
       } catch (logError) {
-        console.error('Erreur lors du logging:', logError);
+        // Erreur lors du logging
       }
     } catch (error) {
-      console.error('Erreur toggle reaction:', error);
+      // Erreur toggle reaction
       await interaction.reply({
         embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue.')],
         flags: 64
@@ -1495,10 +1395,10 @@ export async function handleReactionRoleModal(interaction, client) {
         const role = interaction.guild.roles.cache.get(reactionRole.roleId);
         await reactionRoleLogger.logReactionRemoved(interaction.guild, interaction.user, role, message, emoji);
       } catch (logError) {
-        console.error('Erreur lors du logging:', logError);
+        // Erreur lors du logging
       }
     } catch (error) {
-      console.error('Erreur delete specific:', error);
+      // Erreur delete specific
       await interaction.reply({
         embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue.')],
         flags: 64
@@ -1572,7 +1472,7 @@ export async function handleReactionRoleSelectMenu(interaction, client) {
         });
 
     } catch (error) {
-        console.error('Erreur dans handleReactionRoleSelectMenu:', error);
+        // Erreur dans handleReactionRoleSelectMenu
         await interaction.reply({
             embeds: [createErrorEmbed('❌ Erreur', 'Une erreur est survenue lors de la gestion de la sélection.')],
             flags: 64
@@ -1583,64 +1483,45 @@ export async function handleReactionRoleSelectMenu(interaction, client) {
 // Handler pour les boutons userinfo
 export async function handleUserInfoButton(interaction, client) {
     try {
-        console.log('🔍 [DEBUG] Début handleUserInfoButton');
         const customId = interaction.customId;
-        console.log('🔍 [DEBUG] CustomId:', customId);
         
         // Extraire les informations du customId
         const parts = customId.split('_');
-        const page = parts[1]; // person, xp, ou social
+        const page = parts[1]; // person ou social
         const userId = parts[2];
-        console.log('🔍 [DEBUG] Page:', page, 'UserId:', userId);
         
         // Récupérer l'utilisateur et le membre
-        console.log('🔍 [DEBUG] Récupération de l\'utilisateur...');
         const targetUser = await client.users.fetch(userId).catch((err) => {
-            console.error('❌ [ERREUR] Fetch user:', err);
             return null;
         });
         if (!targetUser) {
-            console.log('❌ [ERREUR] Utilisateur introuvable');
             return interaction.reply({
                 embeds: [createErrorEmbed('Erreur', 'Utilisateur introuvable.')],
                 flags: MessageFlags.Ephemeral
             });
         }
-        console.log('✅ [DEBUG] Utilisateur trouvé:', targetUser.tag);
         
-        console.log('🔍 [DEBUG] Récupération du membre...');
         const member = await interaction.guild.members.fetch(userId).catch((err) => {
-            console.error('❌ [ERREUR] Fetch member:', err);
             return null;
         });
         if (!member) {
-            console.log('❌ [ERREUR] Membre introuvable');
             return interaction.reply({
                 embeds: [createErrorEmbed('Erreur', 'Cet utilisateur n\'est pas membre de ce serveur.')],
                 flags: MessageFlags.Ephemeral
             });
         }
-        console.log('✅ [DEBUG] Membre trouvé:', member.user.tag);
         
         // Créer le nouvel embed et les nouveaux boutons
-        console.log('🔍 [DEBUG] Création de l\'embed...');
         const embed = await createUserInfoEmbed(member, page, interaction.user.id);
-        console.log('✅ [DEBUG] Embed créé');
         
-        console.log('🔍 [DEBUG] Création des boutons...');
         const components = createUserInfoButtons(page, userId);
-        console.log('✅ [DEBUG] Boutons créés:', components.length);
         
-        console.log('🔍 [DEBUG] Mise à jour de l\'interaction...');
         await interaction.update({
             embeds: [embed],
             components: components
         });
-        console.log('✅ [DEBUG] Interaction mise à jour avec succès');
         
     } catch (error) {
-        console.error('❌ [ERREUR] Handler userinfo button:', error);
-        console.error('❌ [ERREUR] Stack trace:', error.stack);
         if (interaction.deferred || interaction.replied) {
             return interaction.editReply({
                 embeds: [createErrorEmbed('Erreur', 'Une erreur est survenue lors de la navigation.')],
@@ -1666,7 +1547,7 @@ async function createUserInfoEmbed(member, page, viewerId = null) {
     switch (page) {
         case 'person': // Page Informations utilisateur
             return createUserInfoPage(member, embedColor);
-        case 'xp': // Page XP / Niveaux
+        case 'xp': // Page XP
             return await createXPPage(member, embedColor);
         case 'social': // Page Réseaux sociaux
             return createSocialPage(member, embedColor, viewerId);
@@ -1723,79 +1604,7 @@ function createUserInfoPage(member, color) {
     return embed;
 }
 
-// Page 2: XP / Niveaux
-async function createXPPage(member, color) {
-    const user = member.user;
-    const guild = member.guild;
-    
-    try {
-        // Import dynamique pour éviter les erreurs de dépendance circulaire
-        const { getUserData, getRequiredXPForLevel: getRequiredXP } = await import('../store/xpStore.js');
-        const { progressBar } = await import('../utils/xp.js');
-        
-        const userData = getUserData(guild.id, user.id);
-        
-        // Calcul XP pour niveau suivant
-        const nextLevel = userData.level + 1;
-        const requiredXP = getRequiredXP(guild.id, nextLevel);
-        const progressPercent = Math.floor((userData.xp / requiredXP) * 100);
-        const progressBarText = progressBar(userData.xp, requiredXP);
-        
-        // Badges selon le niveau
-        const getBadge = (level) => {
-            if (level >= 50) return `${Emojis.legend} **Légende**`;
-            if (level >= 30) return `${Emojis.expert} **Expert**`;
-            if (level >= 20) return `${Emojis.veteran} **Vétéran**`;
-            if (level >= 10) return `${Emojis.active} **Actif**`;
-            return `${Emojis.beginner} **Débutant**`;
-        };
-        
-        const xpNeeded = requiredXP - userData.xp;
-        const voiceHours = Math.floor(userData.voiceTime / 3600);
-        const voiceMinutes = Math.floor((userData.voiceTime % 3600) / 60);
-        
-        const embed = new EmbedBuilder()
-            .setColor(0xFFD700) // Gold
-            .setTitle(`${Emojis.star} **Progression XP de ${user.username}**`)
-            .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
-            .setDescription(`${Emojis.medal} **Badge:** ${getBadge(userData.level)}\n\`\`\`yaml\nNiveau: ${userData.level}\nXP Total: ${userData.xp.toLocaleString()}\nProgression: ${progressPercent}%\`\`\``)
-            .addFields(
-                { 
-                    name: `${Emojis.progress} **Progression vers le niveau ${userData.level + 1}**`, 
-                    value: `**${Emojis.sparkles} XP Actuel:** \`${userData.xp.toLocaleString()}\`\n**${Emojis.target} XP Nécessaire:** \`${xpNeeded.toLocaleString()}\`\n**${Emojis.chart} Progression:** ${progressBarText} **${progressPercent}%**`, 
-                    inline: false 
-                },
-                { 
-                    name: `${Emojis.voice} **Temps Vocal**`, 
-                    value: `**${Emojis.time} Total:** \`${voiceHours}h ${voiceMinutes}m\`\n**${Emojis.progress} Minutes:** \`${Math.floor(userData.voiceTime / 60)}\`\n**${Emojis.tiktok} Activité:** ${userData.voiceTime > 0 ? `${Emojis.online} **Actif**` : `${Emojis.offline} **Inactif**`}`, 
-                    inline: true 
-                },
-                { 
-                    name: `${Emojis.medal} **Statistiques**`, 
-                    value: `**${Emojis.trophy} Niveau:** \`${userData.level}\`\n**${Emojis.target} Prochain niveau:** \`${userData.level + 1}\`\n**${Emojis.sparkles} XP restant:** \`${xpNeeded.toLocaleString()}\``, 
-                    inline: true 
-                }
-            )
-            .setFooter({ text: `${Emojis.star} Progression XP de ${user.tag} • Page XP • ${new Date().toLocaleString('fr-FR')}` })
-            .setTimestamp();
-        
-        return embed;
-    } catch (error) {
-        console.error('Erreur lors de la récupération des données XP:', error);
-        
-        const embed = new EmbedBuilder()
-            .setColor(0xFFD700) // Gold
-            .setTitle(`📈 Niveau et XP de ${user.tag}`)
-            .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
-            .setDescription('❌ Impossible de récupérer les données XP pour cet utilisateur.')
-            .setFooter({ text: `Informations sur ${user.tag} • Page XP` })
-            .setTimestamp();
-        
-        return embed;
-    }
-}
-
-// Page 3: Réseaux sociaux
+// Page 2: Réseaux sociaux
 function createSocialPage(member, color, viewerId = null) {
     const user = member.user;
     const isOwnProfile = viewerId === user.id;
@@ -1811,7 +1620,7 @@ function createSocialPage(member, color, viewerId = null) {
             socialData = allSocials[user.id] || {};
         }
     } catch (error) {
-        console.error('❌ [SOCIAL] Erreur lors de la lecture des données:', error);
+        // Erreur lors de la lecture des données sociales
     }
     
     // Configuration des réseaux sociaux supportés
@@ -1933,4 +1742,129 @@ function getActivityText(activities) {
         case 5: return `🏆 En compétition sur ${activity.name}`;
         default: return activity.name || 'Activité inconnue';
     }
+}
+
+// Fonction pour créer la page XP
+async function createXPPage(member, color) {
+  const user = member.user;
+  
+  // Récupération des données XP
+  let xpInfo = null;
+  try {
+    console.log('[XP-DEBUG] Début récupération données XP pour:', user.id, 'dans guild:', member.guild.id);
+    
+    console.log('[XP-DEBUG] Récupération messageStats...');
+    const messageStats = await messageXPHandler.getUserStats(member.guild.id, user.id);
+    console.log('[XP-DEBUG] messageStats:', messageStats);
+    
+    console.log('[XP-DEBUG] Récupération voiceStats...');
+    const voiceStats = await voiceXPHandler.getUserVoiceStats(member.guild.id, user.id);
+    console.log('[XP-DEBUG] voiceStats:', voiceStats);
+    
+    const messageXP = messageStats ? messageStats.totalXp : 0;
+    const voiceXP = voiceStats ? voiceStats.totalXp : 0;
+    const totalXP = messageXP + voiceXP;
+    
+    console.log('[XP-DEBUG] XP calculés - Message:', messageXP, 'Voice:', voiceXP, 'Total:', totalXP);
+    
+    console.log('[XP-DEBUG] Calcul du niveau...');
+    const level = XPCalculator.calculateLevel(totalXP);
+    console.log('[XP-DEBUG] Niveau calculé:', level);
+    
+    const xpForCurrentLevel = XPCalculator.calculateXPForLevel(level);
+    const xpForNextLevel = XPCalculator.calculateXPForLevel(level + 1);
+    const progressXP = totalXP - xpForCurrentLevel;
+    const neededXP = xpForNextLevel - xpForCurrentLevel;
+    const progressPercentage = Math.round((progressXP / neededXP) * 100);
+    
+    console.log('[XP-DEBUG] Progression calculée:', progressXP, '/', neededXP, '=', progressPercentage, '%');
+    
+    xpInfo = {
+      level,
+      messageXP,
+      voiceXP,
+      totalXP,
+      progressXP,
+      neededXP,
+      progressPercentage
+    };
+    
+    console.log('[XP-DEBUG] xpInfo final:', xpInfo);
+  } catch (error) {
+    console.error('[XP-DEBUG] Erreur lors de la récupération des données XP:', error);
+    console.error('[XP-DEBUG] Stack trace:', error.stack);
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setAuthor({ 
+      name: `${user.displayName} • Expérience (XP)`, 
+      iconURL: user.displayAvatarURL({ dynamic: true }) 
+    })
+    .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }));
+
+  if (xpInfo) {
+    const progressBar = createProgressBar(xpInfo.progressPercentage);
+    
+    embed.addFields(
+      {
+        name: `${Emojis.level} **Niveau**`,
+        value: `\`${xpInfo.level}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.total} **XP Total**`,
+        value: `\`${xpInfo.totalXP.toLocaleString()}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.progress} **Progression**`,
+        value: `\`${xpInfo.progressPercentage}%\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.message} **XP Messages**`,
+        value: `\`${xpInfo.messageXP.toLocaleString()}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.voice} **XP Vocal**`,
+        value: `\`${xpInfo.voiceXP.toLocaleString()}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.star} **Prochain niveau**`,
+        value: `\`${xpInfo.progressXP}/${xpInfo.neededXP} XP\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.progress} **Barre de progression**`,
+        value: `${progressBar}\n\`${xpInfo.progressXP}/${xpInfo.neededXP} XP\` (${xpInfo.progressPercentage}%)`,
+        inline: false
+      }
+    );
+  } else {
+    embed.addFields({
+      name: `${Emojis.error} **Erreur**`,
+      value: `Impossible de récupérer les données XP pour cet utilisateur.`,
+      inline: false
+    });
+  }
+
+  embed.setFooter({ text: `${Emojis.star} Statistiques XP • Page XP • ${new Date().toLocaleString('fr-FR')}` })
+    .setTimestamp();
+
+  return embed;
+}
+
+// Fonction pour créer une barre de progression
+function createProgressBar(percentage) {
+  const totalBars = 10;
+  const filledBars = Math.round((percentage / 100) * totalBars);
+  const emptyBars = totalBars - filledBars;
+  
+  const filled = '█'.repeat(filledBars);
+  const empty = '░'.repeat(emptyBars);
+  
+  return `\`${filled}${empty}\``;
 }

@@ -27,19 +27,7 @@ export const Emojis = {
   activity: '🎮',
   phone: '📱',
   
-  // Emojis pour XP
-  star: '⭐',
-  trophy: '🏆',
-  medal: '🏅',
-  progress: '📊',
-  sparkles: '✨',
-  target: '🎯',
-  chart: '📈',
-  voice: '🎤',
-  time: '⏰',
-  fire: '🔥',
-  gem: '💎',
-  seedling: '🌱',
+
   
   // Emojis pour Social
   globe: '🌐',

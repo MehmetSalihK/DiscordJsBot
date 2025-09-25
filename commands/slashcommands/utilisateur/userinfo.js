@@ -1,8 +1,8 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors, MessageFlags } from 'discord.js';
-import { getUserData } from '../../../src/store/xpStore.js';
-import { getGuildConfig } from '../../../src/store/configStore.js';
-import { progressBar } from '../../../src/utils/xp.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors } from 'discord.js';
 import { createErrorEmbed, Emojis } from '../../../src/utils/embeds.js';
+import messageXPHandler from '../../../src/utils/messageXpHandler.js';
+import voiceXPHandler from '../../../src/utils/voiceXpHandler.js';
+import XPCalculator from '../../../src/utils/xpCalculator.js';
 
 export default {
   category: 'utilisateur',
@@ -29,7 +29,7 @@ export default {
       console.log(`ℹ️  [INFO] Commande /userinfo utilisée par ${interaction.user.tag} pour ${targetUser.tag}`);
 
       // Créer l'embed de la page "Personne" par défaut
-      const embed = createUserInfoEmbed(member, 'person', interaction.user.id);
+      const embed = await createUserInfoEmbed(member, 'person', interaction.user.id);
       const components = createUserInfoButtons('person', targetUser.id);
 
       await interaction.reply({ 
@@ -51,7 +51,7 @@ export default {
 };
 
 // Fonction pour créer l'embed selon la page
-function createUserInfoEmbed(member, page, viewerId = null) {
+async function createUserInfoEmbed(member, page, viewerId = null) {
   const user = member.user;
   const guild = member.guild;
   
@@ -61,18 +61,18 @@ function createUserInfoEmbed(member, page, viewerId = null) {
 
   switch (page) {
     case 'person': // Page Informations utilisateur
-      return createUserInfoPage(member, embedColor);
-    case 'xp': // Page XP / Niveaux
-      return createXPPage(member, embedColor);
+      return await createUserInfoPage(member, embedColor);
+    case 'xp': // Page XP
+      return await createXPPage(member, embedColor);
     case 'social': // Page Réseaux sociaux
       return createSocialPage(member, embedColor, viewerId);
     default:
-      return createUserInfoPage(member, embedColor);
+      return await createUserInfoPage(member, embedColor);
   }
 }
 
 // Page 1: Informations utilisateur
-function createUserInfoPage(member, color) {
+async function createUserInfoPage(member, color) {
   const user = member.user;
   
   // Calcul du temps écoulé depuis la création du compte
@@ -112,59 +112,15 @@ function createUserInfoPage(member, color) {
                  value: `**${Emojis.status} Présence :**\n\`${getStatusText(presence?.status)}\`\n\n**${Emojis.activity} Activité :**\n${activity === 'Aucune activité' ? `\`${activity}\`` : `**${activity}**`}`, 
                  inline: true 
              }
-         )
-        .setFooter({ text: `${Emojis.search} Informations détaillées • Page Personne • ${new Date().toLocaleString('fr-FR')}` })
+         );
+
+  embed.setFooter({ text: `${Emojis.search} Informations détaillées • Page Personne • ${new Date().toLocaleString('fr-FR')}` })
     .setTimestamp();
 
   return embed;
 }
 
-// Page 2: XP / Niveaux
-function createXPPage(member, color) {
-  const user = member.user;
-  const guild = member.guild;
-  
-  try {
-    const userData = getUserData(guild.id, user.id);
-    const conf = getGuildConfig(guild.id);
-    
-    // Calcul XP pour niveau suivant
-    const nextLevel = userData.level + 1;
-    const requiredXP = getRequiredXPForLevel(conf, nextLevel);
-    const progressPercent = Math.floor((userData.xp / requiredXP) * 100);
-    const progressBarText = progressBar(userData.xp, requiredXP);
-    
-    const embed = new EmbedBuilder()
-      .setColor(Colors.Gold)
-      .setTitle(`📈 Niveau et XP de ${user.tag}`)
-      .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
-      .addFields(
-        { name: '🏆 Niveau actuel', value: `**${userData.level}**`, inline: true },
-        { name: '✨ XP actuel', value: `**${userData.xp.toLocaleString()}**`, inline: true },
-        { name: '🎯 XP pour niveau suivant', value: `**${requiredXP.toLocaleString()}**`, inline: true },
-        { name: '📊 Progression', value: `${progressPercent}%`, inline: true },
-        { name: '🕒 Temps vocal', value: `${Math.floor(userData.voiceTime / 60)} minutes`, inline: true },
-        { name: '\u200b', value: '\u200b', inline: true },
-        { name: '📈 Barre de progression', value: progressBarText, inline: false }
-      )
-      .setFooter({ text: `Informations sur ${user.tag} • Page XP` })
-      .setTimestamp();
 
-    return embed;
-  } catch (error) {
-    console.error('Erreur lors de la récupération des données XP:', error);
-    
-    const embed = new EmbedBuilder()
-      .setColor(Colors.Gold)
-      .setTitle(`📈 Niveau et XP de ${user.tag}`)
-      .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
-      .setDescription('❌ Impossible de récupérer les données XP pour cet utilisateur.')
-      .setFooter({ text: `Informations sur ${user.tag} • Page XP` })
-      .setTimestamp();
-
-    return embed;
-  }
-}
 
 // Page 3: Réseaux sociaux
 function createSocialPage(member, color, viewerId = null) {
@@ -234,7 +190,7 @@ function createUserInfoButtons(currentPage, userId) {
 
   const xpButton = new ButtonBuilder()
     .setCustomId(`userinfo_xp_${userId}`)
-    .setLabel('📈 XP')
+    .setLabel('⭐ XP')
     .setStyle(currentPage === 'xp' ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
   const socialButton = new ButtonBuilder()
@@ -309,16 +265,110 @@ function getActivityText(activities) {
   }
 }
 
-function getRequiredXPForLevel(conf, level) {
-  const lvls = conf?.xpSystem?.levels || {};
-  if (lvls[String(level)]) return lvls[String(level)];
+// Fonction pour créer la page XP
+async function createXPPage(member, color) {
+  const user = member.user;
   
-  // Formule de fallback: doubler depuis le dernier niveau connu ou 500
-  let lastKnown = 500;
-  const keys = Object.keys(lvls).map(Number).sort((a,b) => a-b);
-  for (const k of keys) {
-    if (k <= level) lastKnown = lvls[String(k)];
+  // Récupération des données XP
+  let xpInfo = null;
+  try {
+    const messageStats = await messageXPHandler.getStats(user.id);
+    const voiceStats = await voiceXPHandler.getStats(user.id);
+    
+    const messageXP = messageStats ? messageStats.xp : 0;
+    const voiceXP = voiceStats ? voiceStats.xp : 0;
+    const totalXP = messageXP + voiceXP;
+    
+    const level = XPCalculator.calculateLevel(totalXP);
+    const xpForCurrentLevel = XPCalculator.calculateXPForLevel(level);
+    const xpForNextLevel = XPCalculator.calculateXPForLevel(level + 1);
+    const progressXP = totalXP - xpForCurrentLevel;
+    const neededXP = xpForNextLevel - xpForCurrentLevel;
+    const progressPercentage = Math.round((progressXP / neededXP) * 100);
+    
+    xpInfo = {
+      level,
+      messageXP,
+      voiceXP,
+      totalXP,
+      progressXP,
+      neededXP,
+      progressPercentage
+    };
+  } catch (error) {
+    console.error('Erreur lors de la récupération des données XP:', error);
   }
-  const delta = Math.max(0, level - (keys.at(-1) || 1));
-  return lastKnown * Math.pow(2, delta);
+  
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setAuthor({ 
+      name: `${user.displayName} • Expérience (XP)`, 
+      iconURL: user.displayAvatarURL({ dynamic: true }) 
+    })
+    .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }));
+
+  if (xpInfo) {
+    const progressBar = createProgressBar(xpInfo.progressPercentage);
+    
+    embed.addFields(
+      {
+        name: `${Emojis.level} **Niveau**`,
+        value: `\`${xpInfo.level}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.total} **XP Total**`,
+        value: `\`${xpInfo.totalXP.toLocaleString()}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.progress} **Progression**`,
+        value: `\`${xpInfo.progressPercentage}%\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.message} **XP Messages**`,
+        value: `\`${xpInfo.messageXP.toLocaleString()}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.voice} **XP Vocal**`,
+        value: `\`${xpInfo.voiceXP.toLocaleString()}\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.star} **Prochain niveau**`,
+        value: `\`${xpInfo.progressXP}/${xpInfo.neededXP} XP\``,
+        inline: true
+      },
+      {
+        name: `${Emojis.progress} **Barre de progression**`,
+        value: `${progressBar}\n\`${xpInfo.progressXP}/${xpInfo.neededXP} XP\` (${xpInfo.progressPercentage}%)`,
+        inline: false
+      }
+    );
+  } else {
+    embed.addFields({
+      name: `${Emojis.error} **Erreur**`,
+      value: `Impossible de récupérer les données XP pour cet utilisateur.`,
+      inline: false
+    });
+  }
+
+  embed.setFooter({ text: `${Emojis.star} Statistiques XP • Page XP • ${new Date().toLocaleString('fr-FR')}` })
+    .setTimestamp();
+
+  return embed;
+}
+
+// Fonction pour créer une barre de progression
+function createProgressBar(percentage) {
+  const totalBars = 10;
+  const filledBars = Math.round((percentage / 100) * totalBars);
+  const emptyBars = totalBars - filledBars;
+  
+  const filled = '█'.repeat(filledBars);
+  const empty = '░'.repeat(emptyBars);
+  
+  return `\`${filled}${empty}\``;
 }

@@ -53,6 +53,10 @@ export default {
             logger.error('Erreur lors du calcul des statistiques:', error);
         }
 
+
+
+
+
         // Redémarrage automatique des rôles RGB
         try {
             logger.info('🎨 [INFO] Démarrage du système RGB...');

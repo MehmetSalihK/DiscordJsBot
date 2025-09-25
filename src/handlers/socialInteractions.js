@@ -1,4 +1,4 @@
-import { StringSelectMenuBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { StringSelectMenuBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -64,13 +64,13 @@ async function handleAddButtonClick(interaction) {
         { footer: 'Exemple: /social add réseau:twitter identifiant:monnom' }
     ).setColor('#27ae60');
     
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleRemoveButtonClick(interaction, configuredNetworks) {
     if (configuredNetworks.length === 0) {
         const embed = createErrorEmbed('Aucun réseau configuré', 'Vous n\'avez aucun réseau social configuré à supprimer.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         return;
     }
     
@@ -94,13 +94,13 @@ async function handleRemoveButtonClick(interaction, configuredNetworks) {
         'Sélectionnez le réseau social que vous souhaitez supprimer :'
     ).setColor('#e74c3c');
     
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
 }
 
 async function handleEditButtonClick(interaction, configuredNetworks) {
     if (configuredNetworks.length === 0) {
         const embed = createErrorEmbed('Aucun réseau configuré', 'Vous n\'avez aucun réseau social configuré à modifier.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         return;
     }
     
@@ -124,13 +124,13 @@ async function handleEditButtonClick(interaction, configuredNetworks) {
         'Sélectionnez le réseau social que vous souhaitez modifier :'
     ).setColor('#3498db');
     
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
 }
 
 async function handlePrivacyButtonClick(interaction, configuredNetworks, userSocials) {
     if (configuredNetworks.length === 0) {
         const embed = createErrorEmbed('Aucun réseau configuré', 'Vous n\'avez aucun réseau social configuré.');
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         return;
     }
     
@@ -160,7 +160,7 @@ async function handlePrivacyButtonClick(interaction, configuredNetworks, userSoc
             '🔒 **Privé** : Visible uniquement par vous'
     ).setColor('#9b59b6');
     
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
 }
 
 export async function handleSocialSelectInteraction(interaction) {
@@ -362,5 +362,5 @@ async function handleModalEdit(interaction, userId, network) {
         `**Confidentialité :** ${existingPrivacy === 'public' ? '🌍 Public' : '🔒 Privé'}`
     );
     
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }

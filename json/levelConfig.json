@@ -1,0 +1,31 @@
+{
+  "enabled": true,
+  "messageXp": {
+    "xpPerMessage": 1,
+    "cooldownSeconds": 2,
+    "minMessageLength": 1,
+    "ignoreLinks": false,
+    "ignoreEmbeds": false,
+    "ignoreEmojisOnly": true,
+    "ignoreCommands": true
+  },
+  "voiceXp": {
+    "voiceChunkXP": 50,
+    "voiceChunkSeconds": 600,
+    "ignoreAfkChannel": true,
+    "ignoreSelfMuted": false,
+    "ignoreSelfDeafened": false
+  },
+  "levelThresholds": {
+    "mode": "arithmetic",
+    "levelBase": 500,
+    "levelStep": 500,
+    "customThresholds": []
+  },
+  "excludedChannels": [],
+  "excludedRoles": [],
+  "roleRewards": {},
+  "levelUpChannel": null,
+  "levelUpMessage": "🎉 **Félicitations !** {user} a atteint le niveau **{level}** !",
+  "lastUpdated": null
+}

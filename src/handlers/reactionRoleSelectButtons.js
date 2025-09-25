@@ -1,4 +1,4 @@
-import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
 import reactionRoleStore from '../store/reactionRoleStore.js';
 import reactionRoleLogger from '../utils/reactionRoleLogger.js';
 
@@ -28,7 +28,7 @@ class ReactionRoleSelectButtons {
             if (!interaction.member.permissions.has('Administrator')) {
                 await interaction.reply({
                     content: '❌ Vous devez être administrateur pour utiliser cette fonctionnalité.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return true;
             }
@@ -43,11 +43,11 @@ class ReactionRoleSelectButtons {
 
             return true;
         } catch (error) {
-            console.error('Erreur dans handleInteraction:', error);
+            // console.error('Erreur dans handleInteraction:', error);
             
             const errorMessage = {
                 content: '❌ Une erreur est survenue lors du traitement de votre demande.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             };
 
             if (interaction.replied || interaction.deferred) {
@@ -80,7 +80,7 @@ class ReactionRoleSelectButtons {
             default:
                 await interaction.reply({
                     content: '❌ Action de menu non reconnue.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
         }
     }
@@ -122,7 +122,7 @@ class ReactionRoleSelectButtons {
             default:
                 await interaction.reply({
                     content: '❌ Action de bouton non reconnue.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
         }
     }
@@ -178,7 +178,7 @@ class ReactionRoleSelectButtons {
                 });
             }
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
             // Log l'action
             await reactionRoleLogger.logAction(interaction.guild.id, 'select_assign', {
@@ -188,10 +188,10 @@ class ReactionRoleSelectButtons {
             });
 
         } catch (error) {
-            console.error('Erreur lors de l\'assignation des rôles:', error);
+            // console.error('Erreur lors de l\'assignation des rôles:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors de l\'assignation des rôles.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -247,7 +247,7 @@ class ReactionRoleSelectButtons {
                 });
             }
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
             // Log l'action
             await reactionRoleLogger.logAction(interaction.guild.id, 'select_remove', {
@@ -257,10 +257,10 @@ class ReactionRoleSelectButtons {
             });
 
         } catch (error) {
-            console.error('Erreur lors du retrait des rôles:', error);
+            // console.error('Erreur lors du retrait des rôles:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors du retrait des rôles.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -297,13 +297,13 @@ class ReactionRoleSelectButtons {
                         .setEmoji('🔧')
                 );
 
-            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
 
         } catch (error) {
-            console.error('Erreur lors de la gestion des messages:', error);
+            // console.error('Erreur lors de la gestion des messages:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors de la gestion des messages.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -390,7 +390,7 @@ class ReactionRoleSelectButtons {
             if (roles.length === 0) {
                 return await interaction.reply({
                     content: '❌ Aucun rôle disponible pour l\'assignation.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -416,13 +416,13 @@ class ReactionRoleSelectButtons {
                 .setColor(0x00ff00)
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
 
         } catch (error) {
-            console.error('Erreur lors de l\'affichage du menu d\'assignation:', error);
+            // console.error('Erreur lors de l\'affichage du menu d\'assignation:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors de l\'affichage du menu.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -440,7 +440,7 @@ class ReactionRoleSelectButtons {
             if (userRoles.size === 0) {
                 return await interaction.reply({
                     content: '❌ Vous n\'avez aucun rôle à retirer.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -466,13 +466,13 @@ class ReactionRoleSelectButtons {
                 .setColor(0xff0000)
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
 
         } catch (error) {
-            console.error('Erreur lors de l\'affichage du menu de retrait:', error);
+            // console.error('Erreur lors de l\'affichage du menu de retrait:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors de l\'affichage du menu.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -487,7 +487,7 @@ class ReactionRoleSelectButtons {
             if (reactionRoles.length === 0) {
                 return await interaction.reply({
                     content: '❌ Aucun message avec des rôles de réaction configuré.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -513,13 +513,13 @@ class ReactionRoleSelectButtons {
                 .setColor(0x0099ff)
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
 
         } catch (error) {
-            console.error('Erreur lors de l\'affichage du menu de gestion:', error);
+            // console.error('Erreur lors de l\'affichage du menu de gestion:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors de l\'affichage du menu.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -536,7 +536,7 @@ class ReactionRoleSelectButtons {
             if (!role) {
                 return await interaction.reply({
                     content: '❌ Rôle introuvable.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -561,7 +561,7 @@ class ReactionRoleSelectButtons {
                 .setColor(color)
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
             // Log l'action
             await reactionRoleLogger.logAction(interaction.guild.id, `button_${action}`, {
@@ -571,10 +571,10 @@ class ReactionRoleSelectButtons {
             });
 
         } catch (error) {
-            console.error('Erreur lors du toggle du rôle:', error);
+            // console.error('Erreur lors du toggle du rôle:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors de la modification du rôle.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -630,7 +630,7 @@ class ReactionRoleSelectButtons {
                 });
             }
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
             // Log l'action
             await reactionRoleLogger.logAction(interaction.guild.id, `bulk_${action}`, {
@@ -641,10 +641,10 @@ class ReactionRoleSelectButtons {
             });
 
         } catch (error) {
-            console.error('Erreur lors de l\'action en masse:', error);
+            // console.error('Erreur lors de l\'action en masse:', error);
             await interaction.reply({
                 content: '❌ Une erreur est survenue lors de l\'action en masse.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

@@ -53,7 +53,7 @@ export default {
 
       return message.reply({ embeds: [createErrorEmbed('Utilisation', `Usage: ${this.usage}`)] });
     } catch (error) {
-      console.error('[ERREUR] Commande prefix logs:', error);
+      // console.error('[ERREUR] Commande prefix logs:', error);
       const { createErrorEmbed } = await import('../../../src/utils/embeds.js');
       await message.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'exécution de !logs.")] });
     }

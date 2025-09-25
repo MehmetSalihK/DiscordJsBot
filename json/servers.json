@@ -53,7 +53,8 @@
         "logChannelId": "1419610379553734726"
       },
       "voiceLogs": {
-        "logChannelId": "1419610379553734726"
+        "logChannelId": "1419610379553734726",
+        "active": true
       }
     },
     "logs": {
@@ -121,7 +122,8 @@
       "ignoreAfkChannelId": "1417941892502650912",
       "logsActive": true,
       "voiceLogs": {
-        "logChannelId": "1417967911011618927"
+        "logChannelId": "1417967911011618927",
+        "active": true
       }
     },
     "logs": {

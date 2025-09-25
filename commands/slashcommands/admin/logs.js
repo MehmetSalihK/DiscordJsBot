@@ -73,7 +73,7 @@ export default {
         return interaction.reply({ embeds: [createInfoEmbed('⛔ Logs désactivés', 'Les logs normaux sont maintenant désactivés.')] });
       }
     } catch (error) {
-      console.error('[ERREUR] Slash /logs:', error);
+      // console.error('[ERREUR] Slash /logs:', error);
       if (interaction.deferred || interaction.replied) return interaction.editReply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'exécution de /logs.")] });
       return interaction.reply({ embeds: [createErrorEmbed('Erreur', "Une erreur est survenue lors de l'exécution de /logs.")], flags: 64 }); // MessageFlags.Ephemeral
     }

@@ -59,7 +59,7 @@ export default {
                 await this.handleManageExisting(interaction);
             }
         } catch (error) {
-            console.error('Erreur dans reactionRoleInteractions:', error);
+            // console.error('Erreur dans reactionRoleInteractions:', error);
             
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({

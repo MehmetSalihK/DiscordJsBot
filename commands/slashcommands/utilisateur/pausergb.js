@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
 import rgbManager from '../../../src/utils/rgbManager.js';
 import logger from '../../../src/utils/logger.js';
 
@@ -20,7 +20,7 @@ export default {
                     .setTitle('❌ Erreur')
                     .setDescription('Vous devez avoir la permission `Gérer les rôles` pour utiliser cette commande.')
                     .setTimestamp();
-                return interaction.reply({ embeds: [embed], ephemeral: true });
+                return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
             const role = interaction.options.getRole('role');
@@ -46,7 +46,7 @@ export default {
                     .setTitle('❌ Erreur')
                     .setDescription(result.message)
                     .setTimestamp();
-                return interaction.reply({ embeds: [embed], ephemeral: true });
+                return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
         } catch (error) {
@@ -56,7 +56,7 @@ export default {
                 .setTitle('❌ Erreur interne')
                 .setDescription('Une erreur est survenue lors de l\'exécution de la commande.')
                 .setTimestamp();
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
     }
 };

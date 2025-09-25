@@ -1,0 +1,31 @@
+{
+  "780119216954802197": {
+    "config": {
+      "suspension1_duration": 10,
+      "suspension2_duration": 1440,
+      "suspension3_duration": 10080,
+      "warning_expiry_days": 30,
+      "max_warnings": 3,
+      "roles": {
+        "suspension1": null,
+        "suspension2": null,
+        "suspension3": null
+      },
+      "channels": {
+        "logs": null,
+        "sanctions": null,
+        "reglement": null,
+        "suspension3_voice": null
+      }
+    },
+    "users": {
+      "769638536701411379": {
+        "warnings": 0,
+        "suspension_level": 0,
+        "expires": null,
+        "reason": null,
+        "history": []
+      }
+    }
+  }
+}

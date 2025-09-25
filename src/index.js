@@ -8,7 +8,7 @@ import { initializeErrorFiltering } from './utils/errorFilter.js';
 import { displayStartupHeader, displayStartupFooter, displayDebugInfo } from './utils/startup.js';
 import { loadPrefixCommands, loadSlashCommands } from './loaders/commandLoader.js';
 import { getPrefix, setGuildConfig } from './store/configStore.js';
-import { handleHelpButton, handleLogsButton, handleServerInfoButton, handleXPButton, handleXPModal } from './handlers/buttonHandlers.js';
+import { handleHelpButton, handleLogsButton, handleServerInfoButton } from './handlers/buttonHandlers.js';
 import QueueManager from '../music/queueManager.js';
 import { MusicButtonHandler } from '../music/buttonHandler.js';
 import reactionRolesConfig from '../data/reactionroles.json' with { type: "json" };
@@ -44,22 +44,7 @@ async function main() {
     partials: [Partials.Channel, Partials.Message, Partials.Reaction],
   });
 
-  // Handlers XP (messages et vocal)
-  const { handleMessageXP, handleVoiceStateUpdate } = await import('./handlers/xpHandlers.js');
-  client.on(Events.MessageCreate, async (message) => {
-    try {
-      await handleMessageXP(message);
-    } catch (e) {
-      logger.warn('XP message handler error:', e?.message || e);
-    }
-  });
-  client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-    try {
-      await handleVoiceStateUpdate(oldState, newState);
-    } catch (e) {
-      logger.warn('XP voice handler error:', e?.message || e);
-    }
-  });
+
 
   client.prefixCommands = new Collection();
   client.slashCommands = new Collection();
@@ -224,10 +209,33 @@ async function main() {
     }
   });
 
+  // Système d'expiration automatique des suspensions
+  const { checkExpiredSuspensions } = await import('./handlers/progressiveSuspensions.js');
+  
+  // Vérifier les suspensions expirées toutes les 5 minutes
+  setInterval(async () => {
+    try {
+      await checkExpiredSuspensions(client);
+    } catch (error) {
+      logger.error('Erreur lors de la vérification des suspensions expirées:', error);
+    }
+  }, 5 * 60 * 1000); // 5 minutes
+
   // Connexion
   try {
     await client.login(config.token);
     logger.success('Connecté avec succès à Discord');
+    
+    // Vérifier les suspensions expirées au démarrage
+    setTimeout(async () => {
+      try {
+        await checkExpiredSuspensions(client);
+        logger.info('Vérification initiale des suspensions expirées effectuée');
+      } catch (error) {
+        logger.error('Erreur lors de la vérification initiale des suspensions:', error);
+      }
+    }, 10000); // Attendre 10 secondes après le démarrage
+    
   } catch (error) {
     logger.error('Impossible de se connecter au bot:', error);
     process.exit(1);

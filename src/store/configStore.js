@@ -36,15 +36,7 @@ export function getGuildConfig(guildId) {
       name: '',
       prefix: '!',
       logs: { active: true, logChannelId: null },
-      xpSystem: {
-        active: true,
-        messageXP: 1,
-        voiceXPPer5Min: 10,
-        ignoreAfkChannelId: null,
-        xpLogs: { active: true, logChannelId: null },
-        voiceLogs: { active: true, logChannelId: null },
-        levels: { '1': 500, '2': 1000, '3': 2000, '4': 4000 },
-      },
+      voiceLogs: { active: false, logChannelId: null },
     };
     writeServers(map);
   }
@@ -54,8 +46,7 @@ export function getGuildConfig(guildId) {
 export function setGuildConfig(guildId, patch) {
   const map = readServers();
   if (!map[guildId]) map[guildId] = {
-    name: '', prefix: '!', logs: { active: true, logChannelId: null },
-    xpSystem: { active: true, messageXP: 1, voiceXPPer5Min: 10, ignoreAfkChannelId: null, xpLogs: { active: true, logChannelId: null }, voiceLogs: { active: true, logChannelId: null }, levels: { '1': 500, '2': 1000, '3': 2000, '4': 4000 } }
+    name: '', prefix: '!', logs: { active: true, logChannelId: null }, voiceLogs: { active: false, logChannelId: null }
   };
   map[guildId] = { ...map[guildId], ...patch };
   writeServers(map);

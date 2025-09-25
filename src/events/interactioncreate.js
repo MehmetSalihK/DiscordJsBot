@@ -3,6 +3,7 @@ import reactionRoleModals from '../handlers/reactionRoleModals.js';
 import reactionRoleSelectButtons from '../handlers/reactionRoleSelectButtons.js';
 import rgbManager from '../utils/rgbManager.js';
 import logger from '../utils/logger.js';
+import { handleManagementButtons, handleSelectMenuInteraction, handleModalSubmit } from '../handlers/autoVoiceHandlers.js';
 
 export default {
     name: 'interactionCreate',
@@ -25,7 +26,7 @@ export default {
                 const handled = await reactionRoleSelectButtons.handleInteraction(interaction);
                 
                 if (!handled) {
-                    // Gestion des boutons d'aide, logs, serveur info, XP
+                    // Gestion des boutons d'aide, logs, serveur info
                     if (id.startsWith('help_')) {
                         const { handleHelpButton } = await import('../handlers/buttonHandlers.js');
                         return handleHelpButton(interaction, client);
@@ -38,15 +39,17 @@ export default {
                         const { handleServerInfoButton } = await import('../handlers/buttonHandlers.js');
                         return handleServerInfoButton(interaction, client);
                     }
-                    if (id.startsWith('xp_')) {
-                        const { handleXPButton } = await import('../handlers/buttonHandlers.js');
-                        return handleXPButton(interaction, client);
-                    }
+
                     
                     // Gestion des boutons UserInfo
                     if (id.startsWith('userinfo_')) {
                         const { handleUserInfoButton } = await import('../handlers/buttonHandlers.js');
                         return handleUserInfoButton(interaction, client);
+                    }
+                    
+                    // Gestion des boutons Auto Voice Channel
+                    if (id.startsWith('autovoice_')) {
+                        return handleManagementButtons(interaction);
                     }
                     
                     // Gestion des boutons Social Panel
@@ -86,6 +89,39 @@ export default {
                         return reactionRoleInteractions.default.handleInteraction(interaction);
                     }
                     
+                    // Gestion des boutons de modération des liens
+                    if (id.startsWith('linkmod_action_')) {
+                        const { handleLinkModerationButtons } = await import('../handlers/linkModerationButtons.js');
+                        return handleLinkModerationButtons(interaction);
+                    }
+                    
+                    // Gestion des boutons de configuration de modération des liens
+                    if (id.startsWith('linkmod_config_') || id.startsWith('linkmod_toggle_') || 
+                        id.startsWith('linkmod_change_channel_') || id.startsWith('linkmod_remove_channel_') ||
+                        id.startsWith('linkmod_whitelist_') || id.startsWith('linkmod_blacklist_') ||
+                        id.startsWith('linkmod_temp_punishments_') || id.startsWith('linkmod_refresh_')) {
+                        const { handleLinkModerationConfig } = await import('../handlers/linkModerationConfig.js');
+                        return handleLinkModerationConfig(interaction);
+                    }
+                    
+                    // Gestion des boutons XP (classement et configuration)
+                    if (id.startsWith('leaderboard_') || id.startsWith('config_')) {
+                        const { handleXPButtonInteraction } = await import('../handlers/xpButtonHandler.js');
+                        return handleXPButtonInteraction(interaction);
+                    }
+                    
+                    // Gestion des boutons du panneau staff de suspensions (logs)
+                    if (id.startsWith('suspension_staff_')) {
+                        const { handleSuspensionButtons } = await import('../handlers/suspensionButtons.js');
+                        return handleSuspensionButtons(interaction);
+                    }
+                    
+                    // Gestion de l'interface interactive de suspension
+                    if (id.startsWith('suspension_')) {
+                        const { handleSuspensionInterface } = await import('../handlers/suspensionInterface.js');
+                        return handleSuspensionInterface(interaction);
+                    }
+                    
                     // Anciens boutons (compatibilité)
                     switch (interaction.customId) {
                         case 'help_button':
@@ -100,10 +136,7 @@ export default {
                             const { handleServerInfoButton } = await import('../handlers/buttonHandlers.js');
                             await handleServerInfoButton(interaction);
                             break;
-                        case 'xp_button':
-                            const { handleXPButton } = await import('../handlers/buttonHandlers.js');
-                            await handleXPButton(interaction);
-                            break;
+
                     }
                 }
             }
@@ -129,14 +162,16 @@ export default {
                         const { handleSocialSelectInteraction } = await import('../handlers/socialInteractions.js');
                         return handleSocialSelectInteraction(interaction);
                     }
+                    
+                    // Gestion des menus select Auto Voice Channel
+                    if (interaction.customId.startsWith('autovoice_') && interaction.customId.includes('_select_')) {
+                        return handleSelectMenuInteraction(interaction);
+                    }
                 }
             }
             // Gestion des modals
             else if (interaction.isModalSubmit()) {
-                if (interaction.customId === 'xp_levels_modal') {
-                    const { handleXPModal } = await import('../handlers/buttonHandlers.js');
-                    return handleXPModal(interaction, client);
-                }
+
                 
                 // Gestion des modales AutoRole
                 if (interaction.customId.startsWith('autorole_')) {
@@ -156,11 +191,24 @@ export default {
                     return handleSocialModalInteraction(interaction);
                 }
                 
-                // Ancien modal (compatibilité)
-                if (interaction.customId === 'xp_modal') {
-                    const { handleXPModal } = await import('../handlers/buttonHandlers.js');
-                    await handleXPModal(interaction);
+                // Gestion des modals Auto Voice Channel
+                if (interaction.customId.startsWith('autovoice_') && interaction.customId.includes('_modal_')) {
+                    return handleModalSubmit(interaction);
                 }
+                
+                // Gestion des modals de modération des liens - temp ban
+                if (interaction.customId.startsWith('linkmod_tempban_modal_')) {
+                    const { handleTempBanModal } = await import('../handlers/linkModerationButtons.js');
+                    return handleTempBanModal(interaction);
+                }
+                
+                // Gestion des modals de configuration de modération des liens
+                if (interaction.customId.startsWith('linkmod_') && interaction.customId.includes('_modal_')) {
+                    const { handleConfigModals } = await import('../handlers/linkModerationConfig.js');
+                    return handleConfigModals(interaction);
+                }
+                
+
             }
         } catch (error) {
             logger.error('Erreur lors du traitement d\'une interaction:', error);
@@ -188,7 +236,7 @@ async function handleRGBInteraction(interaction) {
                 .setTitle('❌ Erreur')
                 .setDescription('Vous devez avoir la permission `Gérer les rôles` pour utiliser ces boutons.')
                 .setTimestamp();
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         const customId = interaction.customId;
@@ -414,7 +462,7 @@ async function handleGlobalRGBAction(interaction, customId) {
                 .setTitle('❌ Erreur')
                 .setDescription('Vous devez avoir la permission `Gérer les rôles` pour utiliser ces boutons.')
                 .setTimestamp();
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         let result;
@@ -428,7 +476,7 @@ async function handleGlobalRGBAction(interaction, customId) {
                     .setTitle('➕ Ajouter un rôle RGB')
                     .setDescription('Pour ajouter un rôle RGB, utilisez la commande :\n`!rgb start @role` ou `/rgb start role:@role`')
                     .setTimestamp();
-                return interaction.reply({ embeds: [embed], ephemeral: true });
+                return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
             case 'rgb_stop_all':
                 result = await rgbManager.stopAllRGB();
@@ -464,7 +512,7 @@ async function handleGlobalRGBAction(interaction, customId) {
                 .setTimestamp();
             
             logger.info(`${emoji} [ACTION] ${actionText} par ${interaction.user.tag}`);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             
             // Rafraîchir le panel après l'action
             setTimeout(async () => {
@@ -480,7 +528,7 @@ async function handleGlobalRGBAction(interaction, customId) {
                 .setTitle('❌ Erreur')
                 .setDescription(result?.message || 'Erreur lors de l\'exécution de l\'action.')
                 .setTimestamp();
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
     } catch (error) {
@@ -490,7 +538,7 @@ async function handleGlobalRGBAction(interaction, customId) {
             .setTitle('❌ Erreur')
             .setDescription('Erreur lors de l\'exécution de l\'action globale.')
             .setTimestamp();
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 }
 
@@ -503,7 +551,7 @@ async function handleRoleManagement(interaction, roleId) {
                 .setTitle('❌ Erreur')
                 .setDescription('Rôle introuvable.')
                 .setTimestamp();
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         const config = await rgbManager.loadConfig();
@@ -515,7 +563,7 @@ async function handleRoleManagement(interaction, roleId) {
                 .setTitle('❌ Erreur')
                 .setDescription('Configuration du rôle introuvable.')
                 .setTimestamp();
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         // Créer l'embed de gestion
@@ -616,7 +664,7 @@ async function handleRoleManagement(interaction, roleId) {
                 .setEmoji('🔙')
         );
 
-        await interaction.reply({ embeds: [embed], components: [row1, row2, row3], ephemeral: true });
+        await interaction.reply({ embeds: [embed], components: [row1, row2, row3], flags: MessageFlags.Ephemeral });
 
     } catch (error) {
         logger.error('Erreur lors de la gestion du rôle:', error);
@@ -625,7 +673,7 @@ async function handleRoleManagement(interaction, roleId) {
             .setTitle('❌ Erreur')
             .setDescription('Erreur lors de la gestion du rôle.')
             .setTimestamp();
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 }
 

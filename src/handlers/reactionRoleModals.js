@@ -1,4 +1,4 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags } from 'discord.js';
 import reactionRoleStore from '../store/reactionRoleStore.js';
 import reactionRoleLogger from '../utils/reactionRoleLogger.js';
 
@@ -24,7 +24,7 @@ export default {
             if (!interaction.member.permissions.has('Administrator')) {
                 await interaction.reply({
                     content: '❌ Vous devez être administrateur pour utiliser cette fonctionnalité.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return true;
             }
@@ -53,18 +53,18 @@ export default {
                     } else {
                         await interaction.reply({
                             content: '❌ Modal non reconnu.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
             }
 
             return true;
         } catch (error) {
-            console.error('Erreur dans handleModal:', error);
+            // console.error('Erreur dans handleModal:', error);
             
             const errorMessage = {
                 content: '❌ Une erreur est survenue lors du traitement de votre demande.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             };
 
             if (interaction.replied || interaction.deferred) {
@@ -139,7 +139,7 @@ export default {
         try {
             await message.react(emoji);
         } catch (error) {
-            console.warn('Impossible d\'ajouter la réaction au message:', error);
+            // console.warn('Impossible d\'ajouter la réaction au message:', error);
         }
 
         const embed = new EmbedBuilder()
@@ -191,7 +191,7 @@ export default {
                 }
             }
         } catch (error) {
-            console.warn('Impossible de supprimer la réaction du message:', error);
+            // console.warn('Impossible de supprimer la réaction du message:', error);
         }
 
         const embed = new EmbedBuilder()
@@ -219,7 +219,7 @@ export default {
                 }
             }
         } catch (error) {
-            console.error('Erreur lors du logging:', error);
+            // console.error('Erreur lors du logging:', error);
         }
     },
 
@@ -348,14 +348,14 @@ export default {
             if (roleIds.length === 0) {
                 return await interaction.reply({
                     content: '❌ Aucun rôle valide fourni.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
             if (roleIds.length > 25) {
                 return await interaction.reply({
                     content: '❌ Maximum 25 rôles autorisés dans un Select Menu.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -375,7 +375,7 @@ export default {
             if (validRoles.length === 0) {
                 return await interaction.reply({
                     content: '❌ Aucun rôle valide trouvé.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -421,10 +421,10 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur lors de la création du Select Menu:', error);
+            // console.error('Erreur lors de la création du Select Menu:', error);
             await interaction.reply({
                 content: '❌ Erreur lors de la création du Select Menu.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },
@@ -442,14 +442,14 @@ export default {
             if (!Array.isArray(buttonsConfig)) {
                 return await interaction.reply({
                     content: '❌ La configuration des boutons doit être un tableau JSON.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
             if (buttonsConfig.length === 0 || buttonsConfig.length > 25) {
                 return await interaction.reply({
                     content: '❌ Vous devez fournir entre 1 et 25 boutons.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -495,7 +495,7 @@ export default {
             if (buttons.length === 0) {
                 return await interaction.reply({
                     content: '❌ Aucun bouton valide créé.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -538,10 +538,10 @@ export default {
             });
 
         } catch (error) {
-            console.error('Erreur lors de la création des boutons:', error);
+            // console.error('Erreur lors de la création des boutons:', error);
             await interaction.reply({
                 content: '❌ Erreur lors de la création des boutons: JSON invalide.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
