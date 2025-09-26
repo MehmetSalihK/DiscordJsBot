@@ -3,6 +3,14 @@
     "masterChannels": [
       "1289779654298701915"
     ],
-    "userChannels": {}
+    "userChannels": {
+      "769638536701411379": {
+        "channelId": "1421067700268171376",
+        "ownerId": "769638536701411379",
+        "createdAt": 1758879344016,
+        "bannedUsers": [],
+        "blacklistedUsers": []
+      }
+    }
   }
 }

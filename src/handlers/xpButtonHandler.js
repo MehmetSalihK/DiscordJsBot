@@ -12,6 +12,11 @@ const paginationCache = new Collection();
  */
 export async function handleXPButtonInteraction(interaction) {
     try {
+        // Vérifier si c'est une interaction de bouton
+        if (!interaction.isButton()) {
+            return; // Ne rien faire si ce n'est pas un bouton
+        }
+        
         const customId = interaction.customId;
         
         // Gestion des boutons de classement XP
@@ -24,7 +29,11 @@ export async function handleXPButtonInteraction(interaction) {
         }
         else {
             console.warn(`[XP-BUTTONS] ⚠️ Bouton XP non géré: ${customId}`);
-            await interaction.reply({ content: '❌ Cette interaction n\'est pas encore implémentée.', ephemeral: true });
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Cette interaction n\'est pas encore implémentée.', ephemeral: true });
+            } else {
+                await interaction.reply({ content: '❌ Cette interaction n\'est pas encore implémentée.', ephemeral: true });
+            }
         }
     } catch (error) {
         console.error('[XP-BUTTONS] ❌ Erreur lors du traitement du bouton XP:', error);
@@ -128,13 +137,12 @@ async function handleLeaderboardButton(interaction) {
 
         embed.setDescription(leaderboardText);
 
-        // Créer les boutons
-        const navigationButtons = XPEmbeds.createLeaderboardButtons(newPage, leaderboardData.totalPages, paginationData.type);
+        // Créer uniquement les boutons de type (sans les boutons de navigation)
         const typeButtons = XPEmbeds.createLeaderboardTypeButtons(paginationData.type);
 
         await interaction.editReply({
             embeds: [embed],
-            components: [typeButtons, navigationButtons]
+            components: [typeButtons] // Ne pas inclure les boutons de navigation
         });
 
     } catch (error) {

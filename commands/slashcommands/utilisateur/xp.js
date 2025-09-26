@@ -1,10 +1,8 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags, AttachmentBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import messageXPHandler from '../../../src/utils/messageXpHandler.js';
 import voiceXPHandler from '../../../src/utils/voiceXpHandler.js';
 import XPCalculator from '../../../src/utils/xpCalculator.js';
 import xpDataManager from '../../../src/utils/xpDataManager.js';
-import { LeaderboardGenerator } from '../../../src/utils/leaderboardGenerator.js';
-const leaderboardGenerator = new LeaderboardGenerator();
 
 const xpCommand = {
     data: new SlashCommandBuilder()
@@ -274,10 +272,15 @@ const xpCommand = {
             for (const entry of leaderboard) {
                 try {
                     const member = await interaction.guild.members.fetch(entry.userId);
+                    const avatarURL = member.user.displayAvatarURL({ 
+                        extension: 'png',
+                        forceStatic: true,
+                        size: 256 
+                    });
                     leaderboardWithUsers.push({
                         ...entry,
                         username: member.displayName,
-                        avatarURL: member.user.displayAvatarURL({ format: 'png', dynamic: true, size: 256 })
+                        avatarURL: avatarURL
                     });
                 } catch (error) {
                     console.error(`Erreur lors de la récupération des informations du membre ${entry.userId}:`, error);
@@ -294,38 +297,66 @@ const xpCommand = {
             }
             
             try {
-                console.log('[XP-SYSTEM] 🔍 Tentative de génération de l\'image du classement...');
-                // Générer l'image du classement
-                const imageBuffer = await leaderboardGenerator.generate(
-                    leaderboardWithUsers.map(entry => ({
-                        ...entry,
-                        xp: entry.totalXp,
-                        level: entry.level || 0,
-                        progress: entry.progress || 0,
-                        avatarURL: entry.avatarURL
-                    })),
-                    title,
-                    leaderboardType
-                );
+                console.log('[XP-SYSTEM] 🔍 Préparation du classement...');
                 
-                if (!imageBuffer || imageBuffer.length === 0) {
-                    throw new Error('Le buffer de l\'image est vide');
+                // Créer un embed pour le classement avec le même format que les boutons
+                const embed = new EmbedBuilder()
+                    .setColor(0xf1c40f);
+                
+                // Définir le titre en fonction du type de classement
+                let title, description;
+                if (type === 'global') {
+                    title = '🏆 Classement XP Global';
+                    description = 'Classement basé sur l\'XP total (messages + vocal)';
+                } else if (type === 'message') {
+                    title = '🏆 Classement XP Messages';
+                    description = 'Classement basé sur l\'XP de messages';
+                } else {
+                    title = '🏆 Classement XP Vocal';
+                    description = 'Classement basé sur l\'XP vocal';
                 }
                 
-                console.log('[XP-SYSTEM] ✅ Image du classement générée avec succès');
+                embed.setTitle(title)
+                     .setDescription(description);
                 
-                // Créer un fichier joint avec l'image générée
-                const attachment = new AttachmentBuilder(imageBuffer, { name: 'leaderboard.png' });
-                
-                // Créer l'embed avec l'image
-                const embed = new EmbedBuilder()
-                    .setTitle(title)
-                    .setDescription(description)
-                    .setImage('attachment://leaderboard.png')
-                    .setColor(0x5865F2)
-                    .setTimestamp();
+                // Ajouter les entrées du classement
+                let leaderboardText = '';
+                for (let i = 0; i < leaderboardWithUsers.length; i++) {
+                    const entry = leaderboardWithUsers[i];
+                    const position = i + 1;
+                    const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `${position}.`;
+                    const displayName = entry.username ? `**${entry.username}**` : `Utilisateur ${entry.userId}`;
                     
-                // Ajouter des boutons pour changer de type de classement
+                    // Format de l'entrée pour correspondre exactement au gestionnaire de boutons
+                    leaderboardText += `${medal} ${displayName}\n`;
+                    
+                    if (type === 'global') {
+                        // Pour le classement global, afficher les deux types d'XP
+                        const messageXp = entry.messageXp || 0;
+                        const voiceXp = entry.voiceXp || 0;
+                        const totalXp = messageXp + voiceXp;
+                        const levelInfo = await XPCalculator.getUserLevelInfo(totalXp);
+                        
+                        leaderboardText += `   🌟 Niveau ${levelInfo.level} • ${totalXp.toLocaleString('fr-FR')} XP\n`;
+                        leaderboardText += `   💬 ${messageXp.toLocaleString('fr-FR')} • 🎤 ${voiceXp.toLocaleString('fr-FR')}\n\n`;
+                    } else {
+                        // Pour les classements spécifiques (message ou vocal)
+                        const xp = entry.totalXp || 0;
+                        const levelInfo = await XPCalculator.getUserLevelInfo(xp);
+                        leaderboardText += `   🌟 Niveau ${levelInfo.level} • ${xp.toLocaleString('fr-FR')} XP\n\n`;
+                    }
+                }
+                
+                // Ajouter les entrées à la description
+                embed.setDescription(`${description}\n\n${leaderboardText}`);
+                
+                // Ajouter le pied de page avec l'icône du serveur
+                embed.setFooter({
+                    text: `Page 1/1 • ${interaction.guild.name}`,
+                    iconURL: interaction.guild.iconURL({ dynamic: true })
+                });
+                
+                // Créer les boutons pour le type de classement
                 const row = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
@@ -342,13 +373,19 @@ const xpCommand = {
                             .setStyle(leaderboardType === 'voice' ? ButtonStyle.Primary : ButtonStyle.Secondary)
                     );
                 
-                // Envoyer le message avec l'image et les boutons
-                await interaction.editReply({ 
+                // Préparer la réponse avec l'embed et les boutons
+                const replyOptions = {
                     content: null,
                     embeds: [embed],
-                    components: [row],
-                    files: [attachment]
-                });
+                    components: [row]
+                };
+                
+                // Envoyer ou mettre à jour le message
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.editReply(replyOptions);
+                } else {
+                    await interaction.reply(replyOptions);
+                }
             } catch (genError) {
                 console.error('[XP-SYSTEM] ❌ Erreur lors de la génération de l\'image du classement:', genError);
                 
