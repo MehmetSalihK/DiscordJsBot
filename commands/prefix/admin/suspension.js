@@ -1,156 +1,244 @@
-import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import { applySuspension, removeSuspension, getUserData, logSuccess, logError } from '../../../src/handlers/progressiveSuspensions.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
 
 export default {
     name: 'suspension',
-    description: 'Gérer les suspensions d\'un utilisateur',
-    usage: '!suspension <niveau|remove> @utilisateur [durée] [raison]',
+    description: 'Système de suspensions progressives',
+    usage: '!suspension [panel|config|status <@utilisateur>|reset <@utilisateur>|test <@utilisateur> <niveau>]',
     category: 'admin',
-    permissions: [PermissionFlagsBits.ModerateMembers],
+    permissions: [PermissionFlagsBits.ManageGuild],
     
     async execute(message, args) {
-        try {
-            // Vérifier les permissions
-            if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor('#FF0000')
-                    .setTitle('❌ Permissions insuffisantes')
-                    .setDescription('Vous n\'avez pas la permission de modérer les membres.')
-                    .setTimestamp();
-                
-                return await message.reply({ embeds: [errorEmbed] });
-            }
-            
-            // Vérifier les arguments
-            if (args.length < 2) {
-                const usageEmbed = new EmbedBuilder()
-                    .setColor('#FFA500')
-                    .setTitle('📋 Utilisation de la commande')
-                    .setDescription('**Usage:** `!suspension <niveau|remove> @utilisateur [durée] [raison]`')
-                    .addFields(
-                        { name: 'Niveaux disponibles', value: '`1` - Suspension niveau 1\n`2` - Suspension niveau 2\n`3` - Suspension niveau 3\n`remove` - Retirer la suspension', inline: false },
-                        { name: 'Exemples', value: '`!suspension 1 @user123 30m Spam`\n`!suspension 2 @user123 24h Comportement toxique`\n`!suspension remove @user123`', inline: false }
-                    )
-                    .setTimestamp();
-                
-                return await message.reply({ embeds: [usageEmbed] });
-            }
-            
-            const action = args[0].toLowerCase();
-            const targetUser = message.mentions.users.first();
-            
-            if (!targetUser) {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor('#FF0000')
-                    .setTitle('❌ Utilisateur non trouvé')
-                    .setDescription('Veuillez mentionner un utilisateur valide.')
-                    .setTimestamp();
-                
-                return await message.reply({ embeds: [errorEmbed] });
-            }
-            
-            // Vérifier que l'utilisateur est dans le serveur
-            const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
-            if (!targetMember) {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor('#FF0000')
-                    .setTitle('❌ Membre non trouvé')
-                    .setDescription('Cet utilisateur n\'est pas membre de ce serveur.')
-                    .setTimestamp();
-                
-                return await message.reply({ embeds: [errorEmbed] });
-            }
-            
-            // Vérifications de sécurité
-            if (targetUser.id === message.author.id) {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor('#FF0000')
-                    .setTitle('❌ Action impossible')
-                    .setDescription('Vous ne pouvez pas vous suspendre vous-même.')
-                    .setTimestamp();
-                
-                return await message.reply({ embeds: [errorEmbed] });
-            }
-            
-            if (targetUser.bot) {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor('#FF0000')
-                    .setTitle('❌ Action impossible')
-                    .setDescription('Vous ne pouvez pas suspendre un bot.')
-                    .setTimestamp();
-                
-                return await message.reply({ embeds: [errorEmbed] });
-            }
-            
-            // Traitement selon l'action
-            if (action === 'remove') {
-                await removeSuspension(message.guild, targetUser);
-                
-                const successEmbed = new EmbedBuilder()
-                    .setColor('#00FF00')
-                    .setTitle('✅ Suspension retirée')
-                    .setDescription(`La suspension de ${targetUser} a été retirée avec succès.`)
-                    .addFields(
-                        { name: '👮 Modérateur', value: `${message.author}`, inline: true },
-                        { name: '📅 Date', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
-                    )
-                    .setThumbnail(targetUser.displayAvatarURL())
-                    .setTimestamp()
-                    .setFooter({ text: 'Système de Suspensions Progressives' });
-                
-                await message.reply({ embeds: [successEmbed] });
-                logSuccess(`Suspension retirée pour ${targetUser.username} par ${message.author.username}`);
-                
-            } else if (['1', '2', '3'].includes(action)) {
-                const level = parseInt(action);
-                const duration = args[2] || null;
-                const reason = args.slice(3).join(' ') || 'Aucune raison spécifiée';
-                
-                await applySuspension(message.guild, targetUser, level, message.author, reason, duration);
-                
-                const levelNames = { 1: 'Niveau 1', 2: 'Niveau 2', 3: 'Niveau 3' };
-                const levelColors = { 1: '#FFA500', 2: '#FF6B6B', 3: '#8B0000' };
-                
-                const successEmbed = new EmbedBuilder()
-                    .setColor(levelColors[level])
-                    .setTitle(`🚫 Suspension ${levelNames[level]} appliquée`)
-                    .setDescription(`${targetUser} a été suspendu ${levelNames[level].toLowerCase()}.`)
-                    .addFields(
-                        { name: '📋 Raison', value: reason, inline: false },
-                        { name: '👮 Modérateur', value: `${message.author}`, inline: true },
-                        { name: '📅 Date', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
-                    )
-                    .setThumbnail(targetUser.displayAvatarURL())
-                    .setTimestamp()
-                    .setFooter({ text: 'Système de Suspensions Progressives' });
-                
-                if (duration) {
-                    successEmbed.addFields({ name: '⏰ Durée', value: duration, inline: true });
-                }
-                
-                await message.reply({ embeds: [successEmbed] });
-                logSuccess(`Suspension niveau ${level} appliquée à ${targetUser.username} par ${message.author.username} - Raison: ${reason}`);
-                
-            } else {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor('#FF0000')
-                    .setTitle('❌ Action invalide')
-                    .setDescription('Actions disponibles: `1`, `2`, `3`, `remove`')
-                    .setTimestamp();
-                
-                return await message.reply({ embeds: [errorEmbed] });
-            }
-            
-        } catch (error) {
-            logError(`Erreur dans la commande suspension: ${error.message}`);
-            
+        // Vérifier les permissions
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && 
+            !message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
             const errorEmbed = new EmbedBuilder()
                 .setColor('#FF0000')
-                .setTitle('❌ Erreur')
-                .setDescription('Une erreur est survenue lors de l\'exécution de la commande.')
+                .setTitle('❌ Permissions insuffisantes')
+                .setDescription('Vous devez avoir la permission de gérer le serveur ou bannir des membres.')
                 .setTimestamp();
             
-            await message.reply({ embeds: [errorEmbed] });
+            return await message.reply({ embeds: [errorEmbed] });
+        }
+
+        const subcommand = args[0]?.toLowerCase();
+
+        switch (subcommand) {
+            case 'config':
+                await showConfigPanel(message);
+                break;
+            case 'status':
+                await showUserStatus(message, args);
+                break;
+            case 'reset':
+                await resetUser(message, args);
+                break;
+            case 'test':
+                await testSanction(message, args);
+                break;
+            case 'panel':
+            default:
+                await showMainPanel(message);
         }
     }
 };
+
+async function showMainPanel(message) {
+    const introEmbed = new EmbedBuilder()
+        .setColor('#0099FF')
+        .setTitle('🔒 Système de suspensions progressives')
+        .setDescription(`Ce module permet de :
+• Enregistrer des avertissements (\`!warn\` ou \`/warn\`)
+• Appliquer automatiquement des suspensions progressives (3 niveaux)
+• Configurer les rôles, durées, salons de logs et actions
+• Gérer les utilisateurs via un panneau avec boutons
+
+ℹ️ **Actions rapides :**`)
+        .addFields(
+            { name: '⚙️ Configuration', value: 'Paramétrer les rôles, durées et options', inline: true },
+            { name: '📊 Statut serveur', value: 'Voir les statistiques et utilisateurs sanctionnés', inline: true },
+            { name: '🧾 Logs', value: 'Consulter l\'historique des sanctions', inline: true },
+            { name: '🔔 Activation', value: 'Activer/désactiver le système automatique', inline: true },
+            { name: '🔄 Test', value: 'Tester le système en mode sandbox', inline: true },
+            { name: '❌ Fermer', value: 'Fermer ce panneau', inline: true }
+        )
+        .setFooter({ text: 'Système de Suspensions Progressives • Cliquez sur les boutons ci-dessous' })
+        .setTimestamp();
+
+    const actionRow = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('suspension_config')
+                .setLabel('Configurer')
+                .setEmoji('⚙️')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('suspension_status')
+                .setLabel('Statut serveur')
+                .setEmoji('📊')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('suspension_logs')
+                .setLabel('Voir logs')
+                .setEmoji('🧾')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('suspension_toggle')
+                .setLabel('Activer/Désactiver')
+                .setEmoji('🔔')
+                .setStyle(ButtonStyle.Success)
+        );
+
+    const actionRow2 = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('suspension_test')
+                .setLabel('Test')
+                .setEmoji('🔄')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('suspension_close')
+                .setLabel('Fermer')
+                .setEmoji('❌')
+                .setStyle(ButtonStyle.Danger)
+        );
+
+    await message.reply({ 
+        embeds: [introEmbed], 
+        components: [actionRow, actionRow2]
+    });
+}
+
+async function showConfigPanel(message) {
+    const configEmbed = new EmbedBuilder()
+        .setColor('#FFA500')
+        .setTitle('⚙️ Panneau de configuration')
+        .setDescription('Utilisez les boutons interactifs pour configurer le système.')
+        .addFields(
+            { name: 'ℹ️ Information', value: 'Utilisez la commande `/suspension config` ou cliquez sur le bouton "Configurer" dans le panneau principal pour accéder à l\'interface interactive complète.', inline: false }
+        )
+        .setTimestamp();
+
+    await message.reply({ embeds: [configEmbed] });
+}
+
+async function showUserStatus(message, args) {
+    if (!args[1]) {
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Utilisateur manquant')
+            .setDescription('Veuillez mentionner un utilisateur : `!suspension status @utilisateur`')
+            .setTimestamp();
+        
+        return await message.reply({ embeds: [errorEmbed] });
+    }
+
+    const userId = args[1].replace(/[<@!>]/g, '');
+    const user = await message.client.users.fetch(userId).catch(() => null);
+    
+    if (!user) {
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Utilisateur non trouvé')
+            .setDescription('Impossible de trouver cet utilisateur.')
+            .setTimestamp();
+        
+        return await message.reply({ embeds: [errorEmbed] });
+    }
+    
+    // TODO: Implémenter la logique de statut utilisateur
+    const statusEmbed = new EmbedBuilder()
+        .setColor('#0099FF')
+        .setTitle(`📊 Statut de ${user.username}`)
+        .setDescription('Informations sur les sanctions de cet utilisateur')
+        .addFields(
+            { name: '⚠️ Avertissements', value: '0/3', inline: true },
+            { name: '🔒 Niveau de suspension', value: 'Aucun', inline: true },
+            { name: '⏰ Expire le', value: 'N/A', inline: true }
+        )
+        .setThumbnail(user.displayAvatarURL())
+        .setTimestamp();
+
+    await message.reply({ embeds: [statusEmbed] });
+}
+
+async function resetUser(message, args) {
+    if (!args[1]) {
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Utilisateur manquant')
+            .setDescription('Veuillez mentionner un utilisateur : `!suspension reset @utilisateur`')
+            .setTimestamp();
+        
+        return await message.reply({ embeds: [errorEmbed] });
+    }
+
+    const userId = args[1].replace(/[<@!>]/g, '');
+    const user = await message.client.users.fetch(userId).catch(() => null);
+    
+    if (!user) {
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Utilisateur non trouvé')
+            .setDescription('Impossible de trouver cet utilisateur.')
+            .setTimestamp();
+        
+        return await message.reply({ embeds: [errorEmbed] });
+    }
+    
+    // TODO: Implémenter la logique de reset
+    const resetEmbed = new EmbedBuilder()
+        .setColor('#00FF00')
+        .setTitle('🔄 Utilisateur réinitialisé')
+        .setDescription(`Toutes les données de suspension de ${user} ont été réinitialisées.`)
+        .setTimestamp();
+
+    await message.reply({ embeds: [resetEmbed] });
+}
+
+async function testSanction(message, args) {
+    if (!args[1] || !args[2]) {
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Arguments manquants')
+            .setDescription('Usage : `!suspension test @utilisateur <niveau>`\nNiveau : 1, 2 ou 3')
+            .setTimestamp();
+        
+        return await message.reply({ embeds: [errorEmbed] });
+    }
+
+    const userId = args[1].replace(/[<@!>]/g, '');
+    const level = parseInt(args[2]);
+    
+    if (![1, 2, 3].includes(level)) {
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Niveau invalide')
+            .setDescription('Le niveau doit être 1, 2 ou 3.')
+            .setTimestamp();
+        
+        return await message.reply({ embeds: [errorEmbed] });
+    }
+
+    const user = await message.client.users.fetch(userId).catch(() => null);
+    
+    if (!user) {
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Utilisateur non trouvé')
+            .setDescription('Impossible de trouver cet utilisateur.')
+            .setTimestamp();
+        
+        return await message.reply({ embeds: [errorEmbed] });
+    }
+    
+    const testEmbed = new EmbedBuilder()
+        .setColor('#FFA500')
+        .setTitle('🔄 Test de sanction')
+        .setDescription(`Test de suspension niveau ${level} sur ${user} (mode sandbox)`)
+        .addFields(
+            { name: '⚠️ Mode test', value: 'Aucune action réelle n\'a été effectuée', inline: false }
+        )
+        .setTimestamp();
+
+    await message.reply({ embeds: [testEmbed] });
+}

@@ -180,6 +180,27 @@ class XPCalculator {
         }
         return thresholds;
     }
+
+    /**
+     * Calcule les informations de niveau pour un montant d'XP donné
+     * @param {number} totalXp - Le total d'XP de l'utilisateur
+     * @returns {Promise<{level: number, xp: number, xpToNextLevel: number, progress: number}>}
+     */
+    static async calculateLevelInfo(totalXp) {
+        const level = await this.levelFromXP(totalXp);
+        const xpForCurrentLevel = await this.xpForLevel(level);
+        const xpForNextLevel = await this.xpForLevel(level + 1);
+        const xpInCurrentLevel = totalXp - xpForCurrentLevel;
+        const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
+        const progress = xpNeededForNextLevel > 0 ? xpInCurrentLevel / xpNeededForNextLevel : 1;
+        
+        return {
+            level,
+            xp: totalXp,
+            xpToNextLevel: xpNeededForNextLevel,
+            progress: Math.min(Math.max(progress, 0), 1) // S'assure que la progression est entre 0 et 1
+        };
+    }
 }
 
 export default XPCalculator;

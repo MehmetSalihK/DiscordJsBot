@@ -97,7 +97,7 @@
   "780345294214135859": {
     "769638536701411379": {
       "username": "titof7046",
-      "joinCount": 9,
+      "joinCount": 10,
       "totalTimeSpent": 2073171,
       "sessions": [
         {
@@ -144,10 +144,47 @@
           "joinTime": "2025-09-25T09:28:01.747Z",
           "leaveTime": "2025-09-25T09:38:10.917Z",
           "duration": 609170
+        },
+        {
+          "joinTime": "2025-09-25T12:13:59.845Z",
+          "leaveTime": null,
+          "duration": null
         }
       ],
-      "lastJoin": "2025-09-25T09:28:01.747Z",
+      "lastJoin": "2025-09-25T12:13:59.845Z",
       "lastLeave": "2025-09-25T09:38:10.917Z"
+    }
+  },
+  "791394719892504576": {
+    "769638536701411379": {
+      "username": "titof7046",
+      "joinCount": 1,
+      "totalTimeSpent": 4412,
+      "sessions": [
+        {
+          "joinTime": "2025-09-25T12:13:35.369Z",
+          "leaveTime": "2025-09-25T12:13:39.781Z",
+          "duration": 4412
+        }
+      ],
+      "lastJoin": "2025-09-25T12:13:35.369Z",
+      "lastLeave": "2025-09-25T12:13:39.781Z"
+    }
+  },
+  "1417775552965906558": {
+    "769638536701411379": {
+      "username": "titof7046",
+      "joinCount": 1,
+      "totalTimeSpent": 3126,
+      "sessions": [
+        {
+          "joinTime": "2025-09-25T12:17:58.871Z",
+          "leaveTime": "2025-09-25T12:18:01.997Z",
+          "duration": 3126
+        }
+      ],
+      "lastJoin": "2025-09-25T12:17:58.871Z",
+      "lastLeave": "2025-09-25T12:18:01.997Z"
     }
   }
 }
