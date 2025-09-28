@@ -4,8 +4,15 @@
       "totalXp": 22,
       "messageCount": 22,
       "lastMessageDate": "2025-09-26T09:56:55.220Z"
+    },
+    "780119216954802197_487253607398375424": {
+      "totalXp": 10,
+      "messageCount": 10,
+      "lastMessageDate": "2025-09-28T08:12:30.505Z"
     }
   },
-  "cooldowns": {},
-  "lastUpdated": "2025-09-26T11:12:46.296Z"
+  "cooldowns": {
+    "780119216954802197_487253607398375424": 1759047153515
+  },
+  "lastUpdated": "2025-09-28T08:12:32.522Z"
 }

@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, Partials, Events, MessageFlags } from 'discord.js';
+import { Client, Collection, GatewayIntentBits, Partials, Events, MessageFlags, EmbedBuilder } from 'discord.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
@@ -78,6 +78,21 @@ async function main() {
 
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guild) return;
+    
+    // Vérifier si le message est exactement "prefix" (insensible à la casse)
+    if (message.content.trim().toLowerCase() === 'prefix') {
+      const currentPrefix = getPrefix(message.guild.id, config.prefix);
+      const embed = new EmbedBuilder()
+        .setColor('#4CAF50')
+        .setTitle('🔧 Préfixe actuel')
+        .setDescription(`Le préfixe actuel de ce serveur est : \`${currentPrefix}\``)
+        .setFooter({ text: 'Pour changer le préfixe, utilisez la commande setprefix (admin uniquement)' })
+        .setTimestamp();
+      
+      return message.reply({ embeds: [embed] });
+    }
+    
+    // Vérification normale du préfixe pour les autres commandes
     const guildPrefix = getPrefix(message.guild.id, config.prefix);
     if (!message.content.startsWith(guildPrefix)) return;
 
