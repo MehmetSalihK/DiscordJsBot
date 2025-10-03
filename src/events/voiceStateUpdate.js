@@ -286,67 +286,89 @@ Vous êtes maintenant le **propriétaire** de ce salon vocal. Utilisez les bouto
             })
             .setTimestamp();
 
-        // Première rangée - Gestion des membres
+        // Déterminer les statuts pour les boutons
+        const isLocked = everyoneOverwrite && everyoneOverwrite.deny.has('Connect') && !everyoneOverwrite.deny.has('ViewChannel');
+        const isInvisible = everyoneOverwrite && everyoneOverwrite.deny.has('ViewChannel');
+        
+        // Vérifier si un mot de passe est configuré
+        const hasPassword = channelData?.password && channelData.password.enabled;
+        
+        // Première rangée - Contrôles de confidentialité en temps réel
         const row1 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`autovoice_kick_${voiceChannel.id}`)
-                    .setLabel(memberCount <= 1 ? 'Aucun membre à expulser' : `Expulser (${memberCount - 1} membres)`)
-                    .setEmoji(memberCount <= 1 ? '😴' : '🦵')
-                    .setStyle(memberCount <= 1 ? ButtonStyle.Secondary : ButtonStyle.Danger)
-                    .setDisabled(memberCount <= 1), // Désactiver s'il n'y a personne à expulser
-                new ButtonBuilder()
-                    .setCustomId(`autovoice_ban_${voiceChannel.id}`)
-                    .setLabel(memberCount <= 1 ? 'Aucun membre à bannir' : `Bannir du salon`)
-                    .setEmoji(memberCount <= 1 ? '😴' : '🔨')
-                    .setStyle(memberCount <= 1 ? ButtonStyle.Secondary : ButtonStyle.Danger)
-                    .setDisabled(memberCount <= 1), // Désactiver s'il n'y a personne à bannir
-                new ButtonBuilder()
-                    .setCustomId(`autovoice_unban_${voiceChannel.id}`)
-                    .setLabel(bannedCount === 0 ? 'Aucun membre banni' : `Débannir (${bannedCount} bannis)`)
-                    .setEmoji(bannedCount === 0 ? '✅' : '🔓')
-                    .setStyle(bannedCount === 0 ? ButtonStyle.Secondary : ButtonStyle.Success)
-                    .setDisabled(bannedCount === 0) // Désactiver s'il n'y a personne à débannir
-            );
-
-        // Deuxième rangée - Configuration et permissions
-        const row2 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`autovoice_privacy_${voiceChannel.id}`)
                     .setLabel(privacyButtonLabel)
                     .setEmoji(privacyButtonEmoji)
-                    .setStyle(isPrivate ? ButtonStyle.Success : ButtonStyle.Secondary),
+                    .setStyle(isPrivate ? ButtonStyle.Success : ButtonStyle.Primary),
                 new ButtonBuilder()
-                    .setCustomId(`autovoice_permissions_${voiceChannel.id}`)
-                    .setLabel(authorizedCount > 0 ? `Permissions (${authorizedCount} autorisés)` : 'Gérer les permissions')
-                    .setEmoji(authorizedCount > 0 ? '🔑' : '🗝️')
-                    .setStyle(authorizedCount > 0 ? ButtonStyle.Success : ButtonStyle.Primary),
+                    .setCustomId(`autovoice_password_${voiceChannel.id}`)
+                    .setLabel(hasPassword ? 'Modifier MDP' : 'Mot de Passe')
+                    .setEmoji(hasPassword ? '🔐' : '🔒')
+                    .setStyle(hasPassword ? ButtonStyle.Success : ButtonStyle.Secondary),
                 new ButtonBuilder()
-                    .setCustomId(`autovoice_edit_${voiceChannel.id}`)
-                    .setLabel('Modifier le salon')
-                    .setEmoji('⚙️')
+                    .setCustomId(`autovoice_invisible_${voiceChannel.id}`)
+                    .setLabel(isInvisible ? 'Rendre visible' : 'Rendre invisible')
+                    .setEmoji(isInvisible ? '👁️' : '👻')
+                    .setStyle(isInvisible ? ButtonStyle.Success : ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_refresh_${voiceChannel.id}`)
+                    .setLabel(`Actualiser`)
+                    .setEmoji('🔄')
                     .setStyle(ButtonStyle.Secondary)
             );
 
-        // Troisième rangée - Actions spéciales
+        // Deuxième rangée - Gestion des membres
+        const row2 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_kick_${voiceChannel.id}`)
+                    .setLabel(memberCount <= 1 ? 'Aucun membre' : `Expulser`)
+                    .setEmoji(memberCount <= 1 ? '😴' : '🦵')
+                    .setStyle(memberCount <= 1 ? ButtonStyle.Secondary : ButtonStyle.Danger)
+                    .setDisabled(memberCount <= 1),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_ban_${voiceChannel.id}`)
+                    .setLabel(memberCount <= 1 ? 'Aucun membre' : `Bannir`)
+                    .setEmoji(memberCount <= 1 ? '😴' : '🔨')
+                    .setStyle(memberCount <= 1 ? ButtonStyle.Secondary : ButtonStyle.Danger)
+                    .setDisabled(memberCount <= 1),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_unban_${voiceChannel.id}`)
+                    .setLabel(bannedCount === 0 ? 'Aucun banni' : `Débannir`)
+                    .setEmoji(bannedCount === 0 ? '✅' : '🔓')
+                    .setStyle(bannedCount === 0 ? ButtonStyle.Secondary : ButtonStyle.Success)
+                    .setDisabled(bannedCount === 0),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_permissions_${voiceChannel.id}`)
+                    .setLabel('Permissions')
+                    .setEmoji('🔑')
+                    .setStyle(authorizedCount > 0 ? ButtonStyle.Success : ButtonStyle.Primary)
+            );
+
+        // Troisième rangée - Configuration et statistiques
         const row3 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`autovoice_refresh_${voiceChannel.id}`)
-                    .setLabel(`Actualiser (${memberCount} connectés)`)
-                    .setEmoji('🔄')
-                    .setStyle(ButtonStyle.Secondary),
+                    .setCustomId(`autovoice_settings_${voiceChannel.id}`)
+                    .setLabel('Paramètres')
+                    .setEmoji('⚙️')
+                    .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
-                    .setCustomId(`autovoice_logs_${voiceChannel.id}`)
-                    .setLabel('Voir les logs')
+                    .setCustomId(`autovoice_stats_${voiceChannel.id}`)
+                    .setLabel('Statistiques')
                     .setEmoji('📊')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
+                    .setCustomId(`autovoice_claim_${voiceChannel.id}`)
+                    .setLabel('Transférer')
+                    .setEmoji('👑')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
                     .setCustomId(`autovoice_delete_${voiceChannel.id}`)
-                    .setLabel(memberCount > 1 ? `Supprimer (${memberCount} membres)` : 'Supprimer le salon')
-                    .setEmoji(memberCount > 1 ? '⚠️' : '🗑️')
-                    .setStyle(memberCount > 1 ? ButtonStyle.Danger : ButtonStyle.Secondary)
+                    .setLabel('Supprimer')
+                    .setEmoji('🗑️')
+                    .setStyle(ButtonStyle.Danger)
             );
 
         // Envoyer le panneau dans le chat textuel du salon vocal
@@ -392,6 +414,28 @@ export default {
             if (!oldState.channelId && newState.channelId) {
                 // Suppression du console.log DEBUG pour nettoyer les logs
                 logVoiceActivity(newState.channelId, member.id, member.displayName, 'join', timestamp);
+                
+                // 🔐 VÉRIFICATION DU MOT DE PASSE
+                const channelData = Object.values(autoVoiceData[guildId]?.userChannels || {}).find(
+                    data => data.channelId === newState.channelId
+                );
+                
+                if (channelData && channelData.password && channelData.password.enabled) {
+                    // Importer les fonctions de gestion des mots de passe
+                    const { isUserAuthorized, applyPasswordRestrictions, sendPasswordUnlockMessage } = await import('../handlers/autoVoiceHandlers.js');
+                    
+                    if (!isUserAuthorized(member.id, channelData)) {
+                        console.log(`[AUTO-VOICE] 🔐 Salon protégé par mot de passe, application des restrictions pour ${member.displayName}`);
+                        
+                        // Appliquer les restrictions
+                        setTimeout(async () => {
+                            await applyPasswordRestrictions(member, newState.channel);
+                            await sendPasswordUnlockMessage(newState.channel, member, channelData);
+                        }, 1000); // Délai pour laisser le temps à Discord de traiter la connexion
+                    } else {
+                        console.log(`[AUTO-VOICE] ✅ ${member.displayName} est autorisé, pas de restrictions`);
+                    }
+                }
                 
                 // 🎙️ LOGS DISCORD EN TEMPS RÉEL - REJOINDRE
                 const joinEmbed = createVoiceLogEmbed(member, 'join', newState.channel);
@@ -592,9 +636,15 @@ export default {
                     // Suppression du console.log pour nettoyer les logs
 
                     // Envoyer le panneau de gestion
-                    // Suppression du console.log pour nettoyer les logs
-                    await createManagementPanel(newChannel, member);
-                    // Suppression du console.log pour nettoyer les logs
+                    console.log(`[AUTO-VOICE] 📋 Création du panneau de gestion pour ${member.displayName}`);
+                    const panelMessage = await createManagementPanel(newChannel, member);
+                    
+                    // Sauvegarder l'ID du message du panneau pour les futures mises à jour
+                    if (panelMessage) {
+                        autoVoiceData[guildId].userChannels[userId].panelMessageId = panelMessage.id;
+                        saveAutoVoiceData(autoVoiceData);
+                        console.log(`[AUTO-VOICE] 💾 ID du panneau sauvegardé: ${panelMessage.id}`);
+                    }
 
                 } catch (error) {
                     console.error(`[AUTO-VOICE] ❌ Erreur critique lors de la création du salon pour ${member.displayName}:`, error);

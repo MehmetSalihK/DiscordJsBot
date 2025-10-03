@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors, MessageFlags } from 'discord.js';
 import { createErrorEmbed, Emojis } from '../../../src/utils/embeds.js';
 import messageXPHandler from '../../../src/utils/messageXpHandler.js';
 import voiceXPHandler from '../../../src/utils/voiceXpHandler.js';

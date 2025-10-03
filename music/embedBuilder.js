@@ -12,7 +12,7 @@ export class MusicEmbedBuilder {
                 { name: '🔊 Volume', value: `${queue.node.volume}%`, inline: true },
                 { name: '🔁 Mode de répétition', value: this.getLoopModeText(queue.repeatMode), inline: true },
                 { name: '📋 File d\'attente', value: `${queue.tracks.data.length} musique(s)`, inline: true },
-                { name: '🎧 Demandé par', value: `<@${track.requestedBy.id}>`, inline: true }
+                { name: '🎧 Demandé par', value: track.requestedBy ? `<@${track.requestedBy.id}>` : 'Inconnu', inline: true }
             )
             .setThumbnail(track.thumbnail)
             .setTimestamp()
@@ -37,7 +37,7 @@ export class MusicEmbedBuilder {
         if (queue.currentTrack) {
             embed.addFields({
                 name: '🎵 En cours',
-                value: `**[${queue.currentTrack.title}](${queue.currentTrack.url})**\n*Demandé par <@${queue.currentTrack.requestedBy.id}>*`,
+                value: `**[${queue.currentTrack.title}](${queue.currentTrack.url})**\n*Demandé par ${queue.currentTrack.requestedBy ? `<@${queue.currentTrack.requestedBy.id}>` : 'Inconnu'}*`,
                 inline: false
             });
         }
@@ -45,7 +45,7 @@ export class MusicEmbedBuilder {
         if (currentTracks.length > 0) {
             const queueList = currentTracks.map((track, index) => {
                 const position = start + index + 1;
-                return `**${position}.** [${track.title}](${track.url})\n*Demandé par <@${track.requestedBy.id}>* • \`${track.duration}\``;
+                return `**${position}.** [${track.title}](${track.url})\n*Demandé par ${track.requestedBy ? `<@${track.requestedBy.id}>` : 'Inconnu'}* • \`${track.duration}\``;
             }).join('\n\n');
 
             embed.addFields({

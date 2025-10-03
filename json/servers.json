@@ -1,4 +1,9 @@
 {
+  "123456789": {
+    "volume": 50,
+    "logsEnabled": false,
+    "logChannelId": null
+  },
   "123456789012345678": {
     "name": "Serveur Exemple 1",
     "prefix": "!",
@@ -41,7 +46,7 @@
   },
   "780119216954802197": {
     "name": "🗼 Paris'deki Bebeğ",
-    "prefix": ".",
+    "prefix": "!",
     "logChannelId": "1101236533010387177",
     "logsActive": true,
     "autoRole": {

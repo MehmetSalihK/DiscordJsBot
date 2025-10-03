@@ -89,7 +89,7 @@ class MusicPanelManager {
         // Demandé par
         embed.addFields({
             name: '👤 **Demandé par**',
-            value: `<@${track.requestedBy.id}>`,
+            value: track.requestedBy ? `<@${track.requestedBy.id}>` : 'Inconnu',
             inline: true
         });
 

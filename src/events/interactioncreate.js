@@ -3,7 +3,9 @@ import reactionRoleModals from '../handlers/reactionRoleModals.js';
 import reactionRoleSelectButtons from '../handlers/reactionRoleSelectButtons.js';
 import rgbManager from '../utils/rgbManager.js';
 import logger from '../utils/logger.js';
-import { handleManagementButtons, handleSelectMenuInteraction, handleModalSubmit } from '../handlers/autoVoiceHandlers.js';
+import { handleManagementButtons } from '../handlers/autoVoiceHandlers.js';
+import { handleSelectMenuInteraction } from '../handlers/autoVoiceSelections.js';
+import { handleModalSubmit } from '../handlers/autoVoiceModals.js';
 
 export default {
     name: 'interactionCreate',
@@ -212,15 +214,31 @@ export default {
             }
         } catch (error) {
             logger.error('Erreur lors du traitement d\'une interaction:', error);
+            
+            // Vérifier si c'est une erreur d'interaction expirée
+            if (error.code === 10062) {
+                console.log('⚠️ Interaction expirée - impossible de répondre');
+                return;
+            }
+            
             const reply = {
                 content: '❌ Une erreur est survenue lors de l\'exécution de cette commande.',
                 flags: MessageFlags.Ephemeral
             };
             
-            if (interaction.replied || interaction.deferred) {
-                await interaction.editReply(reply);
-            } else {
-                await interaction.reply(reply);
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.editReply(reply);
+                } else {
+                    await interaction.reply(reply);
+                }
+            } catch (replyError) {
+                // Si on ne peut pas répondre, c'est probablement que l'interaction a expiré
+                if (replyError.code === 10062) {
+                    console.log('⚠️ Impossible de répondre - interaction expirée');
+                } else {
+                    logger.error('Erreur lors de la réponse à l\'interaction:', replyError);
+                }
             }
         }
     }

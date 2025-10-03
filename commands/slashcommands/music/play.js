@@ -23,55 +23,35 @@ export default {
             });
         }
 
-        // Répondre immédiatement pour éviter les timeouts
-        await interaction.deferReply();
-
+        // Déférer la réponse immédiatement pour éviter les timeouts
         try {
-            console.log('🔍 Recherche de:', query);
-            
-            // Utiliser directement discord-player avec ytdl-core (plus simple et fiable)
-            const result = await interaction.client.queueManager.player.play(voiceChannel, query, {
-                nodeOptions: {
-                    metadata: {
-                        channel: interaction.channel,
-                        requestedBy: interaction.user,
-                    },
-                    selfDeaf: true,
-                    volume: interaction.client.queueManager.getServerConfig(interaction.guild.id).volume,
-                    leaveOnEmpty: true,
-                    leaveOnEmptyCooldown: 300000,
-                    leaveOnEnd: true,
-                    leaveOnEndCooldown: 300000
-                },
-                searchEngine: QueryType.YOUTUBE_SEARCH
-            });
+            await interaction.deferReply();
+        } catch (error) {
+            console.error('❌ Erreur lors du deferReply:', error);
+            // Si le deferReply échoue, l'interaction a probablement expiré
+            return;
+        }
 
-            const track = result.track;
-            console.log('✅ Lecture réussie:', track.title);
-
-            // Créer l'embed de confirmation
-            const embed = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle('🎶 Musique en cours de lecture')
-                .setDescription(`**${track.title}**`)
-                .addFields(
-                    { name: '⏱️ Durée', value: track.duration || 'Inconnu', inline: true },
-                    { name: '👤 Demandé par', value: interaction.user.toString(), inline: true }
-                )
-                .setThumbnail(track.thumbnail || null);
-
-            await interaction.editReply({ embeds: [embed] });
-
+        // Utiliser la méthode play du queueManager qui gère tout
+        try {
+            await interaction.client.queueManager.play(interaction, query);
         } catch (error) {
             console.error('❌ [PLAY_ERROR] Erreur lors de la lecture:', error);
             
-            const embed = new EmbedBuilder()
-                .setColor('#ff6b6b')
-                .setTitle('❌ Erreur')
-                .setDescription(`Impossible de lire cette musique: ${error.message}`)
-                .setTimestamp();
-            
-            await interaction.editReply({ embeds: [embed] });
+            // Vérifier si on peut encore répondre
+            try {
+                const embed = new EmbedBuilder()
+                    .setColor('#ff6b6b')
+                    .setTitle('❌ Erreur')
+                    .setDescription(`Impossible de lire cette musique: ${error.message}`)
+                    .setTimestamp();
+                
+                if (interaction.deferred && !interaction.replied) {
+                    await interaction.editReply({ embeds: [embed] });
+                }
+            } catch (replyError) {
+                console.error('❌ Impossible de répondre à l\'interaction:', replyError.message);
+            }
         }
     }
 };

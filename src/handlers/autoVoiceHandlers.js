@@ -1,4 +1,5 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits, MessageFlags, ChannelType } from 'discord.js';
+import bcrypt from 'bcrypt';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +8,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const autoVoiceChannelsPath = path.join(__dirname, '../../json/autoVoiceChannels.json');
 const voiceActivityLogsPath = path.join(__dirname, '../../json/voiceActivityLogs.json');
+
+// 🎨 Couleurs pour les embeds
+const COLORS = {
+    SUCCESS: '#00FF88',
+    ERROR: '#FF4444',
+    WARNING: '#FFB347',
+    INFO: '#5865F2',
+    PRIVACY: '#9B59B6',
+    DANGER: '#DC143C'
+};
+
+// 📊 Statistiques en temps réel
+const channelStats = new Map();
 
 // Fonction pour charger les données
 function loadAutoVoiceData() {
@@ -18,7 +32,7 @@ function loadAutoVoiceData() {
         const data = fs.readFileSync(autoVoiceChannelsPath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors du chargement des données:', error);
+        console.error('[AUTO-VOICE] ❌ Erreur lors du chargement des données:', error);
         return {};
     }
 }
@@ -27,8 +41,9 @@ function loadAutoVoiceData() {
 function saveAutoVoiceData(data) {
     try {
         fs.writeFileSync(autoVoiceChannelsPath, JSON.stringify(data, null, 2));
+        console.log('[AUTO-VOICE] 💾 Données sauvegardées avec succès');
     } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors de la sauvegarde des données:', error);
+        console.error('[AUTO-VOICE] ❌ Erreur lors de la sauvegarde des données:', error);
     }
 }
 
@@ -42,25 +57,82 @@ function loadVoiceActivityLogs() {
         const data = fs.readFileSync(voiceActivityLogsPath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        console.error('[VOICE-LOGS] Erreur lors du chargement des logs:', error);
-        return [];{};
+        console.error('[VOICE-LOGS] ❌ Erreur lors du chargement des logs:', error);
+        return {};
     }
+}
+
+// 📈 Fonction pour mettre à jour les statistiques
+function updateChannelStats(channelId, action, userId) {
+    if (!channelStats.has(channelId)) {
+        channelStats.set(channelId, {
+            totalJoins: 0,
+            totalLeaves: 0,
+            uniqueUsers: new Set(),
+            lastActivity: Date.now(),
+            peakMembers: 0
+        });
+    }
+    
+    const stats = channelStats.get(channelId);
+    stats.lastActivity = Date.now();
+    stats.uniqueUsers.add(userId);
+    
+    if (action === 'join') stats.totalJoins++;
+    if (action === 'leave') stats.totalLeaves++;
+}
+
+// 🎯 Fonction pour obtenir le statut du salon
+function getChannelStatus(channel) {
+    const everyoneOverwrite = channel.permissionOverwrites.cache.get(channel.guild.roles.everyone.id);
+    
+    if (!everyoneOverwrite) {
+        return { status: 'public', emoji: '🌐', label: 'Public', description: 'Accessible à tous' };
+    }
+    
+    const canView = !everyoneOverwrite.deny.has('ViewChannel');
+    const canConnect = !everyoneOverwrite.deny.has('Connect');
+    
+    if (!canView && !canConnect) {
+        return { status: 'invisible', emoji: '👻', label: 'Invisible', description: 'Masqué de tous' };
+    }
+    
+    if (canView && !canConnect) {
+        return { status: 'locked', emoji: '🔐', label: 'Verrouillé', description: 'Visible mais inaccessible' };
+    }
+    
+    if (!canView && !canConnect) {
+        return { status: 'private', emoji: '🔒', label: 'Privé', description: 'Accès restreint' };
+    }
+    
+    return { status: 'public', emoji: '🌐', label: 'Public', description: 'Accessible à tous' };
 }
 
 // Gestionnaire principal pour les boutons du panneau de gestion
 async function handleManagementButtons(interaction) {
     try {
-        const [prefix, action, channelId] = interaction.customId.split('_');
+        const startTime = Date.now();
+        console.log(`[AUTO-VOICE] 🔘 Bouton cliqué: ${interaction.customId} par ${interaction.user.displayName}`);
+        
+        const customIdParts = interaction.customId.split('_');
+        const [prefix, action] = customIdParts;
+        let channelId;
+        
+        // Gérer les IDs avec des parties supplémentaires
+        if (action === 'delete' && customIdParts[2] === 'confirm') {
+            channelId = customIdParts[3];
+            return await handleDeleteConfirm(interaction, channelId);
+        } else if (action === 'delete' && customIdParts[2] === 'cancel') {
+            channelId = customIdParts[3];
+            return await handleDeleteCancel(interaction);
+        } else {
+            channelId = customIdParts[2];
+        }
+        
         const channel = interaction.guild.channels.cache.get(channelId);
         
         if (!channel) {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FF0000')
-                .setTitle('❌ Salon introuvable')
-                .setDescription('Le salon vocal n\'existe plus ou a été supprimé.')
-                .setTimestamp();
-            
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            return await sendErrorEmbed(interaction, 'Salon introuvable', 'Le salon vocal n\'existe plus ou a été supprimé.');
         }
 
         const autoVoiceData = loadAutoVoiceData();
@@ -75,1382 +147,1295 @@ async function handleManagementButtons(interaction) {
         }
 
         if (!channelData) {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FF0000')
-                .setTitle('❌ **Données du salon introuvables**')
-                .setDescription(`
-> 🔍 **Problème détecté**
-> Ce salon n'est pas géré par le système de salons vocaux automatiques.
-
-\`\`\`yaml
-Salon: ${channel.name}
-Type: Non géré par le système
-Action: Impossible à exécuter
-\`\`\`
-
-**💡 Solution :** Utilisez uniquement ce panneau sur les salons créés automatiquement.
-                `)
-                .setTimestamp();
-            
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            return await sendErrorEmbed(interaction, 'Données du salon introuvables', 
+                'Ce salon n\'est pas géré par le système de salons vocaux automatiques.');
         }
 
-        // Vérifier si l'utilisateur est le propriétaire ou a les permissions
+        // Actions accessibles à tous (pas de vérification de permissions)
+        const publicActions = ['unlock'];
+        
+        // Vérifier les permissions seulement pour les actions privées
         const isOwner = channelData.ownerId === interaction.user.id;
         const isAuthorized = channelData.authorizedUsers && channelData.authorizedUsers.includes(interaction.user.id);
+        const hasAdminPerms = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
         
-        if (!isOwner && !isAuthorized) {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FF0000')
-                .setTitle('🚫 **Accès Refusé**')
-                .setDescription(`
-> 🔐 **Permissions insuffisantes**
-> Seul le **propriétaire** du salon ou les utilisateurs **autorisés** peuvent utiliser ces contrôles.
+        if (!publicActions.includes(action) && !isOwner && !isAuthorized && !hasAdminPerms) {
+            return await sendAccessDeniedEmbed(interaction, channelData, channel);
+        }
 
-\`\`\`yaml
-Salon: ${channel.name}
-Votre statut: Non autorisé
-Action requise: Permission du propriétaire
-\`\`\`
-                `)
-                .addFields([
-                    { name: '👑 **Propriétaire du salon**', value: `<@${channelData.ownerId}>`, inline: true },
-                    { name: '🔒 **Votre statut**', value: '`❌ Non autorisé`', inline: true },
-                    { name: '💡 **Solution**', value: 'Demandez au propriétaire de vous donner des permissions', inline: false }
-                ])
-                .setTimestamp();
+        console.log(`[AUTO-VOICE] ✅ ${interaction.user.displayName} utilise l'action: ${action} sur le salon: ${channel.name}`);
+
+        // Router vers la fonction appropriée
+        const actionHandlers = {
+            'kick': handleKickAction,
+            'ban': handleBanAction,
+            'unban': handleUnbanAction,
+            'blacklist': handleBlacklistAction,
+            'permissions': handlePermissionsAction,
+            'edit': handleEditAction,
+            'privacy': handlePrivacyAction,
+            'lock': handleLockAction,
+            'invisible': handleInvisibleAction,
+            'claim': handleClaimAction,
+            'refresh': handleRefreshAction,
+            'delete': handleDeleteAction,
+            'logs': handleLogsAction,
+            'stats': handleStatsAction,
+            'settings': handleSettingsAction,
+            'password': handlePasswordAction,
+            'unlock': handlePasswordUnlockAction,
+
+        };
+
+        const handler = actionHandlers[action];
+        if (handler) {
+            await handler(interaction, channel, channelData);
             
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-
-        // console.log(`[AUTO-VOICE] ${interaction.user.displayName} utilise l'action: ${action} sur le salon: ${channel.name}`);
-
-        switch (action) {
-            case 'kick':
-                await handleKickAction(interaction, channel, channelData);
-                break;
-            case 'ban':
-                await handleBanAction(interaction, channel, channelData);
-                break;
-            case 'unban':
-                await handleUnbanAction(interaction, channel, channelData);
-                break;
-            case 'blacklist':
-                await handleBlacklistAction(interaction, channel, channelData);
-                break;
-            case 'permissions':
-                await handlePermissionsAction(interaction, channel, channelData);
-                break;
-            case 'edit':
-                await handleEditAction(interaction, channel, channelData);
-                break;
-            case 'privacy':
-                await handlePrivacyAction(interaction, channel, channelData);
-                break;
-            case 'refresh':
-                await handleRefreshAction(interaction, channel, channelData);
-                break;
-            case 'delete':
-                await handleDeleteAction(interaction, channel, channelData);
-                break;
-            case 'logs':
-                await handleLogsAction(interaction, channel, channelData);
-                break;
-            case 'logs_realtime':
-                await handleLogsAction(interaction, channel, channelData);
-                break;
-            default:
-                const unknownEmbed = new EmbedBuilder()
-                    .setColor('#FF0000')
-                    .setTitle('❌ Action inconnue')
-                    .setDescription('Cette action n\'est pas reconnue par le système.')
-                    .setTimestamp();
-                await interaction.reply({ embeds: [unknownEmbed], flags: MessageFlags.Ephemeral });
-        }
-
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur dans le gestionnaire de boutons:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ System Error')
-            .setDescription('An error occurred while processing your request.')
-            .setTimestamp();
-        
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            // Log du temps d'exécution
+            const executionTime = Date.now() - startTime;
+            console.log(`[AUTO-VOICE] ⚡ Action ${action} exécutée en ${executionTime}ms`);
         } else {
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-    }
-}
-
-// 🦵 Action: Kick member
-async function handleKickAction(interaction, channel, channelData) {
-    const members = channel.members.filter(member => member.id !== channelData.ownerId);
-    
-    if (members.size === 0) {
-        const noMembersEmbed = new EmbedBuilder()
-            .setColor('#FFA500')
-            .setTitle('⚠️ Aucun membre à expulser')
-            .setDescription('Il n\'y a aucun membre dans ce salon à part vous.')
-            .addFields([
-                { name: '💡 Astuce', value: 'Les membres apparaîtront ici dès qu\'ils rejoindront votre salon.', inline: false }
-            ])
-            .setTimestamp();
-        
-        return await interaction.reply({ embeds: [noMembersEmbed], flags: MessageFlags.Ephemeral });
-    }
-
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(`autovoice_kick_select_${channel.id}`)
-        .setPlaceholder('🦵 Sélectionnez un membre à expulser')
-        .addOptions(
-            members.map(member => ({
-                label: member.displayName,
-                value: member.id,
-                description: `${member.user.tag}`,
-                emoji: '🦵'
-            }))
-        );
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-
-    const kickEmbed = new EmbedBuilder()
-        .setColor('#FF6B6B')
-        .setTitle('🦵 Expulser un membre')
-        .setDescription('Sélectionnez le membre que vous souhaitez expulser de votre salon vocal.')
-        .addFields([
-            { name: '👥 Membres présents', value: `${members.size} membre(s)`, inline: true },
-            { name: '⚠️ Note', value: 'Le membre pourra rejoindre à nouveau sauf s\'il est banni.', inline: false }
-        ])
-        .setTimestamp();
-
-    await interaction.reply({
-        embeds: [kickEmbed],
-        components: [row],
-        flags: MessageFlags.Ephemeral
-    });
-}
-
-// 🔨 Action: Ban member
-async function handleBanAction(interaction, channel, channelData) {
-    const members = channel.members.filter(member => member.id !== channelData.ownerId);
-    
-    if (members.size === 0) {
-        const noMembersEmbed = new EmbedBuilder()
-            .setColor('#FFA500')
-            .setTitle('⚠️ Aucun membre à bannir')
-            .setDescription('Il n\'y a aucun membre dans ce salon à part vous.')
-            .addFields([
-                { name: '💡 Astuce', value: 'Les membres apparaîtront ici dès qu\'ils rejoindront votre salon.', inline: false }
-            ])
-            .setTimestamp();
-        
-        return await interaction.reply({ embeds: [noMembersEmbed], flags: MessageFlags.Ephemeral });
-    }
-
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(`autovoice_ban_select_${channel.id}`)
-        .setPlaceholder('🔨 Sélectionnez un membre à bannir')
-        .addOptions(
-            members.map(member => ({
-                label: member.displayName,
-                value: member.id,
-                description: `${member.user.tag}`,
-                emoji: '🔨'
-            }))
-        );
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-
-    const banEmbed = new EmbedBuilder()
-        .setColor('#DC143C')
-        .setTitle('🔨 Bannir un membre')
-        .setDescription('Sélectionnez le membre que vous souhaitez bannir définitivement de votre salon vocal.')
-        .addFields([
-            { name: '👥 Membres présents', value: `${members.size} membre(s)`, inline: true },
-            { name: '🚫 Effet', value: 'Le membre ne pourra plus rejoindre ce salon.', inline: false }
-        ])
-        .setTimestamp();
-
-    await interaction.reply({
-        embeds: [banEmbed],
-        components: [row],
-        flags: MessageFlags.Ephemeral
-    });
-}
-
-// 🟢 Action: Unban member
-async function handleUnbanAction(interaction, channel, channelData) {
-    const autoVoiceData = loadAutoVoiceData();
-    const guildId = interaction.guild.id;
-    
-    if (!channelData.blacklistedUsers || channelData.blacklistedUsers.length === 0) {
-        const noBannedEmbed = new EmbedBuilder()
-            .setColor('#FFA500')
-            .setTitle('⚠️ Aucun membre banni')
-            .setDescription('Il n\'y a aucun membre banni dans ce salon.')
-            .addFields([
-                { name: '💡 Information', value: 'Les membres bannis apparaîtront ici pour pouvoir les débannir.', inline: false }
-            ])
-            .setTimestamp();
-        
-        return await interaction.reply({ embeds: [noBannedEmbed], flags: MessageFlags.Ephemeral });
-    }
-
-    const selectOptions = [];
-    for (const userId of channelData.blacklistedUsers) {
-        try {
-            const user = await interaction.client.users.fetch(userId);
-            selectOptions.push({
-                label: user.displayName || user.username,
-                value: userId,
-                description: `${user.tag}`,
-                emoji: '🟢'
-            });
-        } catch (error) {
-            console.error(`[AUTO-VOICE] Impossible de récupérer l'utilisateur ${userId}:`, error);
-        }
-    }
-
-    if (selectOptions.length === 0) {
-        const noValidUsersEmbed = new EmbedBuilder()
-            .setColor('#FFA500')
-            .setTitle('⚠️ Aucun utilisateur valide trouvé')
-            .setDescription('Impossible de récupérer les informations des utilisateurs bannis.')
-            .addFields([
-                { name: '🔧 Solution', value: 'Vérifiez que les utilisateurs bannis existent toujours.', inline: false }
-            ])
-            .setTimestamp();
-        
-        return await interaction.reply({ embeds: [noValidUsersEmbed], flags: MessageFlags.Ephemeral });
-    }
-
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(`autovoice_unban_select_${channel.id}`)
-        .setPlaceholder('🟢 Sélectionnez un utilisateur à débannir')
-        .addOptions(selectOptions);
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-
-    const unbanEmbed = new EmbedBuilder()
-        .setColor('#32CD32')
-        .setTitle('🟢 Débannir un membre')
-        .setDescription('Sélectionnez l\'utilisateur que vous souhaitez débannir de votre salon vocal.')
-        .addFields([
-            { name: '🚫 Membres bannis', value: `${selectOptions.length} utilisateur(s)`, inline: true },
-            { name: '✅ Effet', value: 'L\'utilisateur pourra à nouveau rejoindre ce salon.', inline: false }
-        ])
-        .setTimestamp();
-
-    await interaction.reply({
-        embeds: [unbanEmbed],
-        components: [row],
-        flags: MessageFlags.Ephemeral
-    });
-}
-
-// 🚫 Action: Blacklist user
-async function handleBlacklistAction(interaction, channel, channelData) {
-    const modal = new ModalBuilder()
-        .setCustomId(`autovoice_blacklist_modal_${channel.id}`)
-        .setTitle('🚫 Bannir un utilisateur');
-
-    const userInput = new TextInputBuilder()
-        .setCustomId('blacklist_user')
-        .setLabel('ID utilisateur ou mention')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('123456789012345678 ou @utilisateur')
-        .setRequired(true);
-
-    const row = new ActionRowBuilder().addComponents(userInput);
-    modal.addComponents(row);
-
-    await interaction.showModal(modal);
-}
-
-// 🔑 Action: Grant permissions
-async function handlePermissionsAction(interaction, channel, channelData) {
-    const modal = new ModalBuilder()
-        .setCustomId(`autovoice_permissions_modal_${channel.id}`)
-        .setTitle('🔑 Accorder des permissions');
-
-    const userInput = new TextInputBuilder()
-        .setCustomId('permission_user')
-        .setLabel('ID utilisateur ou mention')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('123456789012345678 ou @utilisateur')
-        .setRequired(true);
-
-    const row = new ActionRowBuilder().addComponents(userInput);
-    modal.addComponents(row);
-
-    await interaction.showModal(modal);
-}
-
-// ✏️ Action: Edit channel
-async function handleEditAction(interaction, channel, channelData) {
-    const modal = new ModalBuilder()
-        .setCustomId(`autovoice_edit_modal_${channel.id}`)
-        .setTitle('✏️ Modifier le salon');
-
-    const nameInput = new TextInputBuilder()
-        .setCustomId('channel_name')
-        .setLabel('Nouveau nom du salon')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder(channel.name)
-        .setRequired(false);
-
-    const limitInput = new TextInputBuilder()
-        .setCustomId('user_limit')
-        .setLabel('Limite d\'utilisateurs (0 = illimité)')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder(channel.userLimit.toString())
-        .setRequired(false);
-
-    const bitrateInput = new TextInputBuilder()
-        .setCustomId('bitrate')
-        .setLabel('Débit audio (en kbps, max 384)')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder((channel.bitrate / 1000).toString())
-        .setRequired(false);
-
-    const firstRow = new ActionRowBuilder().addComponents(nameInput);
-    const secondRow = new ActionRowBuilder().addComponents(limitInput);
-    const thirdRow = new ActionRowBuilder().addComponents(bitrateInput);
-
-    modal.addComponents(firstRow, secondRow, thirdRow);
-
-    await interaction.showModal(modal);
-}
-
-// Gestionnaire pour les sélections de menus
-async function handleSelectMenuInteraction(interaction) {
-    try {
-        const [prefix, action, type, channelId] = interaction.customId.split('_');
-        const channel = interaction.guild.channels.cache.get(channelId);
-        
-        if (!channel) {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FF0000')
-                .setTitle('❌ Salon introuvable')
-                .setDescription('Le salon vocal n\'existe plus ou a été supprimé.')
-                .setTimestamp();
-            
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-
-        const autoVoiceData = loadAutoVoiceData();
-        const guildId = interaction.guild.id;
-        const selectedUserId = interaction.values[0];
-
-        // Trouver les données du salon
-        const channelData = Object.values(autoVoiceData[guildId].userChannels).find(
-            data => data.channelId === channelId
-        );
-
-        if (!channelData) {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FF0000')
-                .setTitle('❌ Données du salon introuvables')
-                .setDescription('Ce salon n\'est pas géré par le système de salons vocaux automatiques.')
-                .setTimestamp();
-            
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-
-        switch (action) {
-            case 'kick':
-                await handleKickSelect(interaction, channel, channelData, selectedUserId);
-                break;
-            case 'ban':
-                await handleBanSelect(interaction, channel, channelData, selectedUserId);
-                break;
-            case 'unban':
-                await handleUnbanSelect(interaction, channel, channelData, selectedUserId);
-                break;
+            await sendErrorEmbed(interaction, 'Action inconnue', `Cette action n'est pas reconnue: ${action}`);
         }
 
     } catch (error) {
-        console.error('[AUTO-VOICE] Erreur dans le gestionnaire de sélection:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur système')
-            .setDescription('Une erreur s\'est produite lors du traitement de votre sélection.')
-            .addFields([
-                { name: '🔧 Solution', value: 'Veuillez réessayer dans quelques instants.', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        console.error('[AUTO-VOICE] ❌ Erreur dans le gestionnaire de boutons:', error);
+        await sendSystemErrorEmbed(interaction, error);
     }
 }
 
-// Gestionnaire pour les sélections de kick
-async function handleKickSelect(interaction, channel, channelData, selectedUserId) {
-    try {
-        const member = await interaction.guild.members.fetch(selectedUserId);
-        
-        if (member.voice.channel && member.voice.channel.id === channel.id) {
-            await member.voice.disconnect('Expulsé par le propriétaire du salon');
-            
-            const embed = new EmbedBuilder()
-                .setColor('#FFA500')
-                .setTitle('🦵 Membre expulsé')
-                .setDescription(`✅ **${member.displayName}** a été expulsé du salon vocal.`)
-                .addFields([
-                    { name: '👤 Utilisateur expulsé', value: `${member.user.tag} (${member.user.id})`, inline: true },
-                    { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                    { name: '⚠️ Note', value: 'L\'utilisateur peut rejoindre à nouveau sauf s\'il est banni.', inline: false }
-                ])
-                .setTimestamp();
-                
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            // console.log(`[AUTO-VOICE] 🦵 ${member.user.tag} expulsé de ${channel.name} par ${interaction.user.tag}`);
-        } else {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FFA500')
-                .setTitle('⚠️ Utilisateur non présent')
-                .setDescription('Cet utilisateur n\'est pas dans le salon vocal.')
-                .addFields([
-                    { name: '💡 Information', value: 'L\'utilisateur a peut-être quitté le salon entre temps.', inline: false }
-                ])
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors du kick:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur lors de l\'expulsion')
-            .setDescription('Impossible d\'expulser cet utilisateur.')
-            .addFields([
-                { name: '🔧 Causes possibles', value: '• Permissions insuffisantes\n• Utilisateur introuvable\n• Erreur de connexion', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// Gestionnaire pour les sélections de ban
-async function handleBanSelect(interaction, channel, channelData, selectedUserId) {
-    try {
-        const member = await interaction.guild.members.fetch(selectedUserId);
-        const autoVoiceData = loadAutoVoiceData();
-        const guildId = interaction.guild.id;
-        
-        // Ajouter à la liste noire
-        if (!channelData.blacklistedUsers) {
-            channelData.blacklistedUsers = [];
-        }
-        
-        if (!channelData.blacklistedUsers.includes(selectedUserId)) {
-            channelData.blacklistedUsers.push(selectedUserId);
-            
-            // Sauvegarder les données
-            const userChannelKey = Object.keys(autoVoiceData[guildId].userChannels).find(
-                key => autoVoiceData[guildId].userChannels[key].channelId === channel.id
-            );
-            if (userChannelKey) {
-                autoVoiceData[guildId].userChannels[userChannelKey] = channelData;
-                saveAutoVoiceData(autoVoiceData);
-            }
-        }
-        
-        // Expulser l'utilisateur s'il est dans le salon
-        if (member.voice.channel && member.voice.channel.id === channel.id) {
-            await member.voice.disconnect('Banni par le propriétaire du salon');
-        }
-        
-        // Retirer les permissions
-        await channel.permissionOverwrites.edit(selectedUserId, {
-            Connect: false,
-            ViewChannel: false
-        });
-        
-        const embed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('🔨 Membre banni')
-            .setDescription(`✅ **${member.displayName}** a été banni définitivement du salon vocal.`)
-            .addFields([
-                { name: '👤 Utilisateur banni', value: `${member.user.tag} (${member.user.id})`, inline: true },
-                { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                { name: '🚫 Effet', value: 'L\'utilisateur ne peut plus rejoindre ce salon.', inline: false }
-            ])
-            .setTimestamp();
-            
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        // console.log(`[AUTO-VOICE] 🔨 ${member.user.tag} banni de ${channel.name} par ${interaction.user.tag}`);
-        
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors du ban:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur lors du bannissement')
-            .setDescription('Impossible de bannir cet utilisateur.')
-            .addFields([
-                { name: '🔧 Causes possibles', value: '• Permissions insuffisantes\n• Utilisateur introuvable\n• Erreur de sauvegarde', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// Gestionnaire pour les sélections d'unban
-async function handleUnbanSelect(interaction, channel, channelData, selectedUserId) {
-    try {
-        const user = await interaction.client.users.fetch(selectedUserId);
-        const autoVoiceData = loadAutoVoiceData();
-        const guildId = interaction.guild.id;
-        
-        // Retirer de la liste noire
-        if (channelData.blacklistedUsers) {
-            channelData.blacklistedUsers = channelData.blacklistedUsers.filter(id => id !== selectedUserId);
-            
-            // Sauvegarder les données
-            const userChannelKey = Object.keys(autoVoiceData[guildId].userChannels).find(
-                key => autoVoiceData[guildId].userChannels[key].channelId === channel.id
-            );
-            if (userChannelKey) {
-                autoVoiceData[guildId].userChannels[userChannelKey] = channelData;
-                saveAutoVoiceData(autoVoiceData);
-            }
-        }
-        
-        // Restaurer les permissions
-        await channel.permissionOverwrites.edit(selectedUserId, {
-            Connect: true,
-            ViewChannel: true
-        });
-        
-        const embed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setTitle('🟢 Membre débanni')
-            .setDescription(`✅ **${user.displayName || user.username}** a été débanni du salon vocal.`)
-            .addFields([
-                { name: '👤 Utilisateur débanni', value: `${user.tag} (${user.id})`, inline: true },
-                { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                { name: '✅ Effet', value: 'L\'utilisateur peut à nouveau rejoindre ce salon.', inline: false }
-            ])
-            .setTimestamp();
-            
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        // console.log(`[AUTO-VOICE] 🟢 ${user.tag} débanni de ${channel.name} par ${interaction.user.tag}`);
-        
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors de l\'unban:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur lors du débannissement')
-            .setDescription('Impossible de débannir cet utilisateur.')
-            .addFields([
-                { name: '🔧 Causes possibles', value: '• Permissions insuffisantes\n• Utilisateur introuvable\n• Erreur de sauvegarde', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// Gestionnaire pour les modals
-async function handleModalSubmit(interaction) {
-    try {
-        const [prefix, action, type, channelId] = interaction.customId.split('_');
-        const channel = interaction.guild.channels.cache.get(channelId);
-        
-        if (!channel) {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FF0000')
-                .setTitle('❌ Salon introuvable')
-                .setDescription('Le salon vocal n\'existe plus ou a été supprimé.')
-                .setTimestamp();
-            
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-
-        const autoVoiceData = loadAutoVoiceData();
-        const guildId = interaction.guild.id;
-
-        // Trouver les données du salon
-        const channelData = Object.values(autoVoiceData[guildId].userChannels).find(
-            data => data.channelId === channelId
-        );
-
-        if (!channelData) {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FF0000')
-                .setTitle('❌ Données du salon introuvables')
-                .setDescription('Ce salon n\'est pas géré par le système de salons vocaux automatiques.')
-                .setTimestamp();
-            
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-
-        switch (action) {
-            case 'blacklist':
-                await handleBlacklistModal(interaction, channel, channelData);
-                break;
-            case 'permissions':
-                await handlePermissionsModal(interaction, channel, channelData);
-                break;
-            case 'edit':
-                await handleEditModal(interaction, channel, channelData);
-                break;
-        }
-
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur dans le gestionnaire de modal:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur système')
-            .setDescription('Une erreur s\'est produite lors du traitement de votre demande.')
-            .addFields([
-                { name: '🔧 Solution', value: 'Veuillez réessayer dans quelques instants.', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// Gestionnaire pour le modal de blacklist
-async function handleBlacklistModal(interaction, channel, channelData) {
-    const userInput = interaction.fields.getTextInputValue('blacklist_user');
-    let userId = userInput.replace(/[<@!>]/g, '');
-    
-    try {
-        const user = await interaction.client.users.fetch(userId);
-        const autoVoiceData = loadAutoVoiceData();
-        const guildId = interaction.guild.id;
-        
-        // Ajouter à la liste noire
-        if (!channelData.blacklistedUsers) {
-            channelData.blacklistedUsers = [];
-        }
-        
-        if (!channelData.blacklistedUsers.includes(userId)) {
-            channelData.blacklistedUsers.push(userId);
-            
-            // Sauvegarder les données
-            const userChannelKey = Object.keys(autoVoiceData[guildId].userChannels).find(
-                key => autoVoiceData[guildId].userChannels[key].channelId === channel.id
-            );
-            if (userChannelKey) {
-                autoVoiceData[guildId].userChannels[userChannelKey] = channelData;
-                saveAutoVoiceData(autoVoiceData);
-            }
-        }
-        
-        // Expulser l'utilisateur s'il est dans le salon
-        const member = interaction.guild.members.cache.get(userId);
-        if (member && member.voice.channel && member.voice.channel.id === channel.id) {
-            await member.voice.disconnect('Mis sur liste noire par le propriétaire du salon');
-        }
-        
-        // Retirer les permissions
-        await channel.permissionOverwrites.edit(userId, {
-            Connect: false,
-            ViewChannel: false
-        });
-        
-        const embed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('🚫 Utilisateur mis sur liste noire')
-            .setDescription(`✅ **${user.displayName || user.username}** a été mis sur liste noire du salon vocal.`)
-            .addFields([
-                { name: '👤 Utilisateur banni', value: `${user.tag} (${user.id})`, inline: true },
-                { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                { name: '🚫 Effet', value: 'L\'utilisateur ne peut plus accéder à ce salon.', inline: false }
-            ])
-            .setTimestamp();
-            
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        // console.log(`[AUTO-VOICE] 🚫 ${user.tag} mis sur liste noire de ${channel.name} par ${interaction.user.tag}`);
-        
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors du blacklist:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur de liste noire')
-            .setDescription('Impossible de mettre cet utilisateur sur liste noire.')
-            .addFields([
-                { name: '🔧 Causes possibles', value: '• ID utilisateur invalide\n• Utilisateur introuvable\n• Erreur de permissions', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// Gestionnaire pour le modal de permissions
-async function handlePermissionsModal(interaction, channel, channelData) {
-    const userInput = interaction.fields.getTextInputValue('permission_user');
-    let userId = userInput.replace(/[<@!>]/g, '');
-    
-    try {
-        const user = await interaction.client.users.fetch(userId);
-        const autoVoiceData = loadAutoVoiceData();
-        const guildId = interaction.guild.id;
-        
-        // Ajouter aux utilisateurs autorisés
-        if (!channelData.authorizedUsers) {
-            channelData.authorizedUsers = [];
-        }
-        
-        if (!channelData.authorizedUsers.includes(userId)) {
-            channelData.authorizedUsers.push(userId);
-            
-            // Sauvegarder les données
-            const userChannelKey = Object.keys(autoVoiceData[guildId].userChannels).find(
-                key => autoVoiceData[guildId].userChannels[key].channelId === channel.id
-            );
-            if (userChannelKey) {
-                autoVoiceData[guildId].userChannels[userChannelKey] = channelData;
-                saveAutoVoiceData(autoVoiceData);
-            }
-        }
-        
-        // Donner les permissions de gestion
-        await channel.permissionOverwrites.edit(userId, {
-            ViewChannel: true,
-            Connect: true,
-            Speak: true,
-            ManageChannels: true,
-            ManageRoles: true,
-            MoveMembers: true,
-            MuteMembers: true,
-            DeafenMembers: true
-        });
-        
-        const embed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setTitle('🔑 Permissions accordées')
-            .setDescription(`✅ **${user.displayName || user.username}** a reçu les permissions de gestion pour ce salon vocal.`)
-            .addFields([
-                { name: '👤 Utilisateur autorisé', value: `${user.tag} (${user.id})`, inline: true },
-                { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                { name: '🔧 Permissions', value: '• Voir le salon\n• Se connecter\n• Parler\n• Gérer le salon\n• Déplacer les membres\n• Couper le micro', inline: false }
-            ])
-            .setTimestamp();
-            
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        // console.log(`[AUTO-VOICE] 🔑 ${user.tag} a reçu les permissions pour ${channel.name} par ${interaction.user.tag}`);
-        
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors de l\'attribution des permissions:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur de permissions')
-            .setDescription('Impossible d\'accorder les permissions à cet utilisateur.')
-            .addFields([
-                { name: '🔧 Causes possibles', value: '• ID utilisateur invalide\n• Utilisateur introuvable\n• Erreur de permissions', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// Gestionnaire pour le modal d'édition
-async function handleEditModal(interaction, channel, channelData) {
-    const nameInput = interaction.fields.getTextInputValue('channel_name');
-    const limitInput = interaction.fields.getTextInputValue('user_limit');
-    const bitrateInput = interaction.fields.getTextInputValue('bitrate');
-    
-    try {
-        const updates = {};
-        
-        if (nameInput && nameInput.trim() !== '') {
-            updates.name = nameInput.trim();
-        }
-        
-        if (limitInput && limitInput.trim() !== '') {
-            const limit = parseInt(limitInput);
-            if (!isNaN(limit) && limit >= 0 && limit <= 99) {
-                updates.userLimit = limit;
-            }
-        }
-        
-        if (bitrateInput && bitrateInput.trim() !== '') {
-            const bitrate = parseInt(bitrateInput);
-            if (!isNaN(bitrate) && bitrate >= 8 && bitrate <= 384) {
-                updates.bitrate = bitrate * 1000;
-            }
-        }
-        
-        if (Object.keys(updates).length > 0) {
-            await channel.edit(updates);
-            
-            const embed = new EmbedBuilder()
-                .setColor('#00FF00')
-                .setTitle('✏️ Salon modifié')
-                .setDescription('✅ Le salon vocal a été mis à jour avec succès.')
-                .addFields([
-                    { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                    { name: '📝 Modifications', value: Object.keys(updates).map(key => {
-                        if (key === 'bitrate') return `• Débit audio: ${updates[key] / 1000}kbps`;
-                        if (key === 'userLimit') return `• Limite d'utilisateurs: ${updates[key] || 'Illimitée'}`;
-                        if (key === 'name') return `• Nom: ${updates[key]}`;
-                        return `• ${key}: ${updates[key]}`;
-                    }).join('\n'), inline: true }
-                ])
-                .setTimestamp();
-                
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            // console.log(`[AUTO-VOICE] ✏️ Salon ${channel.name} modifié par ${interaction.user.tag}`);
-        } else {
-            const errorEmbed = new EmbedBuilder()
-                .setColor('#FFA500')
-                .setTitle('⚠️ Aucune modification valide')
-                .setDescription('Aucune modification valide n\'a été fournie.')
-                .addFields([
-                    { name: '💡 Conseils', value: '• Nom: 1-100 caractères\n• Limite: 0-99 utilisateurs\n• Débit: 8-384 kbps', inline: false }
-                ])
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-        
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors de l\'édition du salon:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur de modification')
-            .setDescription('Impossible de modifier le salon vocal.')
-            .addFields([
-                { name: '🔧 Causes possibles', value: '• Permissions insuffisantes\n• Valeurs invalides\n• Erreur de connexion', inline: false }
-            ])
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// 🔒 Action: Toggle Privacy
+// 🔒 Action: Basculer la confidentialité (privé/public) en temps réel
 async function handlePrivacyAction(interaction, channel, channelData) {
     try {
-        const everyoneRole = interaction.guild.roles.everyone;
-        const currentOverwrite = channel.permissionOverwrites.cache.get(everyoneRole.id);
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
-        let isCurrentlyPrivate = currentOverwrite && currentOverwrite.deny.has('Connect');
+        const currentStatus = getChannelStatus(channel);
+        let newStatus, embed;
         
-        if (isCurrentlyPrivate) {
-            // Rendre public
-            await channel.permissionOverwrites.edit(everyoneRole, {
-                Connect: true,
-                ViewChannel: true
+        if (currentStatus.status === 'public') {
+            // Rendre privé
+            await channel.permissionOverwrites.edit(channel.guild.roles.everyone.id, {
+                Connect: false,
+                ViewChannel: false
             });
             
-            const embed = new EmbedBuilder()
-                .setColor('#00FF00')
-                .setTitle('🌐 Salon rendu public')
-                .setDescription('✅ Votre salon vocal est maintenant accessible à tous les membres du serveur.')
-                .addFields([
-                    { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                    { name: '🔓 Statut', value: 'Public', inline: true },
-                    { name: '👥 Accès', value: 'Tous les membres', inline: true }
-                ])
-                .setTimestamp();
-                
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            embed = createStatusEmbed('🔒 **Salon rendu privé**', COLORS.PRIVACY, {
+                salon: channel.name,
+                statut: '🔒 Privé',
+                acces: 'Propriétaire + autorisés uniquement',
+                effet: 'Seuls vous et les personnes autorisées peuvent voir et rejoindre ce salon.'
+            });
+            
+            newStatus = 'private';
         } else {
-            // Rendre privé
-            await channel.permissionOverwrites.edit(everyoneRole, {
+            // Rendre public
+            await channel.permissionOverwrites.edit(channel.guild.roles.everyone.id, {
+                Connect: null,
+                ViewChannel: null
+            });
+            
+            embed = createStatusEmbed('🔓 **Salon rendu public**', COLORS.SUCCESS, {
+                salon: channel.name,
+                statut: '🌐 Public',
+                acces: 'Tout le monde peut rejoindre',
+                effet: 'Tous les membres du serveur peuvent maintenant voir et rejoindre votre salon.'
+            });
+            
+            newStatus = 'public';
+        }
+        
+        await interaction.editReply({ embeds: [embed] });
+        
+        // Actualiser le panneau après un délai
+        setTimeout(() => updateManagementPanel(channel, channelData), 1500);
+        
+        // Log de l'action
+        console.log(`[AUTO-VOICE] 🔒 ${channel.name} changé vers ${newStatus} par ${interaction.user.displayName}`);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors du changement de confidentialité:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 🔐 Action: Verrouiller le salon
+async function handleLockAction(interaction, channel, channelData) {
+    try {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        const currentStatus = getChannelStatus(channel);
+        let embed;
+        
+        if (currentStatus.status === 'locked') {
+            // Déverrouiller
+            await channel.permissionOverwrites.edit(channel.guild.roles.everyone.id, {
+                Connect: null
+            });
+            
+            embed = createStatusEmbed('🔓 **Salon déverrouillé**', COLORS.SUCCESS, {
+                salon: channel.name,
+                statut: '🔓 Déverrouillé',
+                connexions: 'Autorisées',
+                effet: 'Les nouveaux membres peuvent maintenant rejoindre votre salon.'
+            });
+        } else {
+            // Verrouiller
+            await channel.permissionOverwrites.edit(channel.guild.roles.everyone.id, {
                 Connect: false,
                 ViewChannel: true
             });
             
-            const embed = new EmbedBuilder()
-                .setColor('#FFA500')
-                .setTitle('🔒 Salon rendu privé')
-                .setDescription('✅ Votre salon vocal est maintenant privé. Seules les personnes autorisées peuvent rejoindre.')
-                .addFields([
-                    { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                    { name: '🔒 Statut', value: 'Privé', inline: true },
-                    { name: '👥 Accès', value: 'Membres autorisés uniquement', inline: true }
-                ])
-                .setTimestamp();
-                
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            embed = createStatusEmbed('🔐 **Salon verrouillé**', COLORS.WARNING, {
+                salon: channel.name,
+                statut: '🔐 Verrouillé',
+                visibilite: 'Visible mais inaccessible',
+                effet: 'Les membres actuels restent, mais aucune nouvelle connexion n\'est possible.'
+            });
         }
         
-        // console.log(`[AUTO-VOICE] 🔒 Confidentialité du salon ${channel.name} modifiée par ${interaction.user.tag} (${isCurrentlyPrivate ? 'Public' : 'Privé'})`);
+        await interaction.editReply({ embeds: [embed] });
+        setTimeout(() => updateManagementPanel(channel, channelData), 1500);
         
     } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors du changement de confidentialité:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur de confidentialité')
-            .setDescription('Impossible de modifier la confidentialité du salon.')
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        console.error('[AUTO-VOICE] ❌ Erreur lors du verrouillage:', error);
+        await sendSystemErrorEmbed(interaction, error);
     }
 }
 
-// 🔄 Action: Refresh Panel
+// 👻 Action: Rendre invisible
+async function handleInvisibleAction(interaction, channel, channelData) {
+    try {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        
+        const currentStatus = getChannelStatus(channel);
+        let embed;
+        
+        if (currentStatus.status === 'invisible') {
+            // Rendre visible
+            await channel.permissionOverwrites.edit(channel.guild.roles.everyone.id, {
+                ViewChannel: null
+            });
+            
+            embed = createStatusEmbed('👁️ **Salon rendu visible**', COLORS.SUCCESS, {
+                salon: channel.name,
+                visibilite: '👁️ Visible',
+                statut: 'Affiché dans la liste',
+                effet: 'Votre salon apparaît à nouveau dans la liste des salons.'
+            });
+        } else {
+            // Rendre invisible
+            await channel.permissionOverwrites.edit(channel.guild.roles.everyone.id, {
+                ViewChannel: false,
+                Connect: false
+            });
+            
+            embed = createStatusEmbed('👻 **Salon rendu invisible**', COLORS.PRIVACY, {
+                salon: channel.name,
+                visibilite: '👻 Invisible',
+                statut: 'Masqué de tous',
+                effet: 'Seuls les membres déjà connectés peuvent voir et utiliser ce salon.'
+            });
+        }
+        
+        await interaction.editReply({ embeds: [embed] });
+        setTimeout(() => updateManagementPanel(channel, channelData), 1500);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors du changement de visibilité:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 🦵 Action: Expulser un membre (améliorée)
+async function handleKickAction(interaction, channel, channelData) {
+    try {
+        const members = channel.members.filter(member => member.id !== channelData.ownerId);
+        
+        if (members.size === 0) {
+            return await sendInfoEmbed(interaction, 'Aucun membre à expulser', 
+                'Il n\'y a aucun membre dans ce salon à part vous.');
+        }
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`autovoice_kick_select_${channel.id}`)
+            .setPlaceholder('🦵 Sélectionnez un membre à expulser')
+            .addOptions(
+                members.map(member => ({
+                    label: member.displayName,
+                    value: member.id,
+                    description: `${member.user.tag} • Connecté depuis ${getConnectionTime(member, channel)}`,
+                    emoji: '🦵'
+                }))
+            );
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+
+        const embed = new EmbedBuilder()
+            .setColor(COLORS.WARNING)
+            .setTitle('🦵 **Expulser un membre**')
+            .setDescription('Sélectionnez le membre que vous souhaitez expulser de votre salon vocal.')
+            .addFields([
+                { name: '👥 Membres présents', value: `${members.size} membre(s)`, inline: true },
+                { name: '⚠️ Note', value: 'Le membre pourra rejoindre à nouveau sauf s\'il est banni.', inline: true },
+                { name: '🔄 Action', value: 'Expulsion temporaire', inline: true }
+            ])
+            .setFooter({ text: 'Sélectionnez un membre dans le menu déroulant' })
+            .setTimestamp();
+
+        await interaction.reply({
+            embeds: [embed],
+            components: [row],
+            flags: MessageFlags.Ephemeral
+        });
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de l\'expulsion:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 🔨 Action: Bannir un membre (améliorée)
+async function handleBanAction(interaction, channel, channelData) {
+    try {
+        const members = channel.members.filter(member => member.id !== channelData.ownerId);
+        
+        if (members.size === 0) {
+            return await sendInfoEmbed(interaction, 'Aucun membre à bannir', 
+                'Il n\'y a aucun membre dans ce salon à part vous.');
+        }
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`autovoice_ban_select_${channel.id}`)
+            .setPlaceholder('🔨 Sélectionnez un membre à bannir')
+            .addOptions(
+                members.map(member => ({
+                    label: member.displayName,
+                    value: member.id,
+                    description: `${member.user.tag} • Bannissement permanent`,
+                    emoji: '🔨'
+                }))
+            );
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+
+        const embed = new EmbedBuilder()
+            .setColor(COLORS.DANGER)
+            .setTitle('🔨 **Bannir un membre**')
+            .setDescription('⚠️ **Action permanente** - Sélectionnez le membre à bannir définitivement.')
+            .addFields([
+                { name: '👥 Membres présents', value: `${members.size} membre(s)`, inline: true },
+                { name: '🚫 Effet', value: 'Le membre ne pourra plus jamais rejoindre ce salon.', inline: true },
+                { name: '🔄 Réversible', value: 'Uniquement via le bouton "Débannir"', inline: true }
+            ])
+            .setFooter({ text: '⚠️ Cette action est permanente jusqu\'au débannissement' })
+            .setTimestamp();
+
+        await interaction.reply({
+            embeds: [embed],
+            components: [row],
+            flags: MessageFlags.Ephemeral
+        });
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors du bannissement:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 🔄 Action: Actualiser le panneau (améliorée)
 async function handleRefreshAction(interaction, channel, channelData) {
     try {
-        // Importer la fonction createManagementPanel depuis voiceStateUpdate.js
-        const { createManagementPanel } = await import('../events/voiceStateUpdate.js');
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
-        // Récupérer le propriétaire
-        const owner = await interaction.guild.members.fetch(channelData.ownerId);
+        const startTime = Date.now();
+        await updateManagementPanel(channel, channelData);
+        const updateTime = Date.now() - startTime;
         
-        // Supprimer l'ancien panneau si possible
-        try {
-            const messages = await channel.messages.fetch({ limit: 50 });
-            const botMessages = messages.filter(msg => 
-                msg.author.id === interaction.client.user.id && 
+        const stats = channelStats.get(channel.id) || { totalJoins: 0, uniqueUsers: new Set() };
+        
+        const embed = new EmbedBuilder()
+            .setColor(COLORS.SUCCESS)
+            .setTitle('🔄 **Panneau actualisé avec succès**')
+            .setDescription('Le panneau de gestion a été mis à jour avec les dernières informations.')
+            .addFields([
+                { name: '📊 Informations actuelles', value: `\`\`\`yaml\nSalon: ${channel.name}\nMembres: ${channel.members.size}\nStatut: ${getChannelStatus(channel).label}\n\`\`\``, inline: false },
+                { name: '⚡ Performance', value: `\`\`\`yaml\nMise à jour: ${updateTime}ms\nDernière activité: ${new Date().toLocaleTimeString()}\n\`\`\``, inline: true },
+                { name: '📈 Statistiques', value: `\`\`\`yaml\nVisiteurs uniques: ${stats.uniqueUsers.size}\nTotal connexions: ${stats.totalJoins}\n\`\`\``, inline: true }
+            ])
+            .setFooter({ text: 'Panneau mis à jour automatiquement' })
+            .setTimestamp();
+        
+        await interaction.editReply({ embeds: [embed] });
+        
+        console.log(`[AUTO-VOICE] 🔄 Panneau actualisé pour ${channel.name} en ${updateTime}ms`);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de l\'actualisation:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 📊 Action: Afficher les statistiques détaillées
+async function handleStatsAction(interaction, channel, channelData) {
+    try {
+        const logs = loadVoiceActivityLogs();
+        const channelLogs = logs[channel.id] || {};
+        const stats = channelStats.get(channel.id) || { totalJoins: 0, totalLeaves: 0, uniqueUsers: new Set(), peakMembers: 0 };
+        
+        // Calculer les statistiques
+        const totalUsers = Object.keys(channelLogs).length;
+        const currentMembers = channel.members.size;
+        const averageSession = totalUsers > 0 ? Math.round(stats.totalJoins / totalUsers) : 0;
+        
+        // Top utilisateurs
+        const topUsers = Object.entries(channelLogs)
+            .sort((a, b) => b[1].joinCount - a[1].joinCount)
+            .slice(0, 5)
+            .map(([userId, data], index) => `${index + 1}. ${data.username} (${data.joinCount} connexions)`)
+            .join('\n') || 'Aucune donnée';
+
+        const embed = new EmbedBuilder()
+            .setColor(COLORS.INFO)
+            .setTitle('📊 **Statistiques détaillées du salon**')
+            .setDescription(`Analyse complète de l'activité pour **${channel.name}**`)
+            .addFields([
+                { 
+                    name: '👥 **Activité générale**', 
+                    value: `\`\`\`yaml\nMembres actuels: ${currentMembers}\nVisiteurs uniques: ${stats.uniqueUsers.size}\nTotal connexions: ${stats.totalJoins}\nTotal déconnexions: ${stats.totalLeaves}\nPic de fréquentation: ${stats.peakMembers}\n\`\`\``, 
+                    inline: false 
+                },
+                { 
+                    name: '📈 **Métriques**', 
+                    value: `\`\`\`yaml\nSessions moyennes: ${averageSession}\nTaux de rétention: ${stats.totalLeaves > 0 ? Math.round((stats.totalJoins / stats.totalLeaves) * 100) : 100}%\nActivité récente: ${stats.lastActivity ? new Date(stats.lastActivity).toLocaleString() : 'Aucune'}\n\`\`\``, 
+                    inline: true 
+                },
+                { 
+                    name: '🏆 **Top utilisateurs**', 
+                    value: `\`\`\`\n${topUsers}\n\`\`\``, 
+                    inline: true 
+                },
+                { 
+                    name: '⚙️ **Configuration**', 
+                    value: `\`\`\`yaml\nStatut: ${getChannelStatus(channel).label}\nLimite: ${channel.userLimit || 'Illimitée'}\nQualité: ${Math.round(channel.bitrate / 1000)} kbps\nRégion: ${channel.rtcRegion || 'Auto'}\n\`\`\``, 
+                    inline: false 
+                }
+            ])
+            .setFooter({ text: 'Statistiques mises à jour en temps réel' })
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de l\'affichage des stats:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// ⚙️ Action: Paramètres avancés
+async function handleSettingsAction(interaction, channel, channelData) {
+    try {
+        const modal = new ModalBuilder()
+            .setCustomId(`autovoice_settings_modal_${channel.id}`)
+            .setTitle('⚙️ Paramètres avancés du salon');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId('channel_name')
+            .setLabel('Nom du salon')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder(channel.name)
+            .setValue(channel.name)
+            .setMaxLength(100)
+            .setRequired(false);
+
+        const limitInput = new TextInputBuilder()
+            .setCustomId('user_limit')
+            .setLabel('Limite d\'utilisateurs (0 = illimité)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder(channel.userLimit.toString())
+            .setValue(channel.userLimit.toString())
+            .setMaxLength(2)
+            .setRequired(false);
+
+        const bitrateInput = new TextInputBuilder()
+            .setCustomId('bitrate')
+            .setLabel('Qualité audio (kbps, max 384)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder((channel.bitrate / 1000).toString())
+            .setValue((channel.bitrate / 1000).toString())
+            .setMaxLength(3)
+            .setRequired(false);
+
+        const regionInput = new TextInputBuilder()
+            .setCustomId('region')
+            .setLabel('Région vocale (auto, us-east, europe, etc.)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder(channel.rtcRegion || 'auto')
+            .setValue(channel.rtcRegion || 'auto')
+            .setMaxLength(20)
+            .setRequired(false);
+
+        const descriptionInput = new TextInputBuilder()
+            .setCustomId('description')
+            .setLabel('Description du salon (optionnel)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Décrivez votre salon vocal...')
+            .setMaxLength(500)
+            .setRequired(false);
+
+        const rows = [
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(limitInput),
+            new ActionRowBuilder().addComponents(bitrateInput),
+            new ActionRowBuilder().addComponents(regionInput),
+            new ActionRowBuilder().addComponents(descriptionInput)
+        ];
+
+        modal.addComponents(...rows);
+        await interaction.showModal(modal);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de l\'ouverture des paramètres:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 🗑️ Action: Supprimer le salon (améliorée)
+async function handleDeleteAction(interaction, channel, channelData) {
+    try {
+        const memberCount = channel.members.size;
+        const stats = channelStats.get(channel.id) || { uniqueUsers: new Set(), totalJoins: 0 };
+        
+        const embed = new EmbedBuilder()
+            .setColor(COLORS.DANGER)
+            .setTitle('🗑️ **Confirmer la suppression définitive**')
+            .setDescription('⚠️ **Cette action est irréversible et aura des conséquences importantes.**')
+            .addFields([
+                { 
+                    name: '📊 **Informations du salon**', 
+                    value: `\`\`\`yaml\nNom: ${channel.name}\nMembres connectés: ${memberCount}\nVisiteurs uniques: ${stats.uniqueUsers.size}\nTotal connexions: ${stats.totalJoins}\n\`\`\``, 
+                    inline: false 
+                },
+                { 
+                    name: '💥 **Conséquences de la suppression**', 
+                    value: '• Le salon sera supprimé immédiatement\n• Tous les membres seront déconnectés\n• Toutes les données et statistiques seront perdues\n• Les permissions et paramètres seront effacés\n• Cette action ne peut pas être annulée', 
+                    inline: false 
+                },
+                { 
+                    name: '🔄 **Alternative**', 
+                    value: 'Vous pouvez rendre le salon invisible ou le verrouiller au lieu de le supprimer.', 
+                    inline: false 
+                }
+            ])
+            .setFooter({ text: '⚠️ Réfléchissez bien avant de confirmer cette action' })
+            .setTimestamp();
+
+        const confirmButtons = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_delete_confirm_${channel.id}`)
+                    .setLabel('Oui, supprimer définitivement')
+                    .setEmoji('🗑️')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_delete_cancel_${channel.id}`)
+                    .setLabel('Annuler')
+                    .setEmoji('❌')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_invisible_${channel.id}`)
+                    .setLabel('Rendre invisible à la place')
+                    .setEmoji('👻')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        await interaction.reply({
+            embeds: [embed],
+            components: [confirmButtons],
+            flags: MessageFlags.Ephemeral
+        });
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de la suppression:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// Fonctions utilitaires pour les embeds
+function createStatusEmbed(title, color, fields) {
+    const embed = new EmbedBuilder()
+        .setColor(color)
+        .setTitle(title)
+        .setDescription('> ✅ **Changement appliqué avec succès**')
+        .setTimestamp();
+
+    const fieldText = Object.entries(fields)
+        .map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`)
+        .join('\n');
+
+    embed.addFields([
+        { name: '📋 **Détails**', value: `\`\`\`yaml\n${fieldText}\n\`\`\``, inline: false }
+    ]);
+
+    return embed;
+}
+
+async function sendErrorEmbed(interaction, title, description) {
+    const embed = new EmbedBuilder()
+        .setColor(COLORS.ERROR)
+        .setTitle(`❌ ${title}`)
+        .setDescription(description)
+        .setTimestamp();
+    
+    if (interaction.deferred) {
+        await interaction.editReply({ embeds: [embed] });
+    } else {
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+}
+
+async function sendInfoEmbed(interaction, title, description) {
+    const embed = new EmbedBuilder()
+        .setColor(COLORS.INFO)
+        .setTitle(`ℹ️ ${title}`)
+        .setDescription(description)
+        .setTimestamp();
+    
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
+async function sendAccessDeniedEmbed(interaction, channelData, channel) {
+    const embed = new EmbedBuilder()
+        .setColor(COLORS.ERROR)
+        .setTitle('🚫 **Accès Refusé**')
+        .setDescription('Seul le **propriétaire** du salon ou les utilisateurs **autorisés** peuvent utiliser ces contrôles.')
+        .addFields([
+            { name: '👑 **Propriétaire du salon**', value: `<@${channelData.ownerId}>`, inline: true },
+            { name: '🔒 **Votre statut**', value: '`❌ Non autorisé`', inline: true },
+            { name: '💡 **Solution**', value: 'Demandez au propriétaire de vous donner des permissions', inline: false }
+        ])
+        .setFooter({ text: `Salon: ${channel.name}` })
+        .setTimestamp();
+    
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
+async function sendSystemErrorEmbed(interaction, error) {
+    const embed = new EmbedBuilder()
+        .setColor(COLORS.ERROR)
+        .setTitle('❌ **Erreur Système**')
+        .setDescription('Une erreur inattendue s\'est produite lors du traitement de votre demande.')
+        .addFields([
+            { name: '🔧 **Détails techniques**', value: `\`\`\`\n${error.message || 'Erreur inconnue'}\n\`\`\``, inline: false },
+            { name: '💡 **Solutions**', value: '• Réessayez dans quelques instants\n• Vérifiez les permissions du bot\n• Contactez un administrateur si le problème persiste', inline: false }
+        ])
+        .setFooter({ text: 'Erreur signalée automatiquement' })
+        .setTimestamp();
+    
+    if (interaction.deferred) {
+        await interaction.editReply({ embeds: [embed] });
+    } else {
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+}
+
+// Fonction utilitaire pour obtenir le temps de connexion
+function getConnectionTime(member, channel) {
+    // Simulation du temps de connexion (à améliorer avec de vraies données)
+    return 'quelques minutes';
+}
+
+// Fonction pour créer les données du panneau mis à jour
+async function createUpdatedPanelData(voiceChannel, owner, channelData) {
+    try {
+        // Récupérer les informations en temps réel du salon
+        const memberCount = voiceChannel.members.size;
+        const membersList = voiceChannel.members.map(member => member.displayName).join(', ') || 'Aucun membre';
+        
+        // Déterminer le statut de confidentialité
+        const everyoneOverwrite = voiceChannel.permissionOverwrites.cache.get(voiceChannel.guild.roles.everyone.id);
+        let privacyStatus = '🌐 **Public**';
+        let privacyDescription = 'Tout le monde peut rejoindre ce salon';
+        let isPrivate = false;
+        let privacyButtonEmoji = '🔓';
+        let privacyButtonLabel = 'Rendre privé';
+        
+        if (everyoneOverwrite && everyoneOverwrite.deny.has('Connect')) {
+            privacyStatus = '🔒 **Privé**';
+            privacyDescription = 'Seules les personnes autorisées peuvent rejoindre';
+            isPrivate = true;
+            privacyButtonEmoji = '🔒';
+            privacyButtonLabel = 'Rendre public';
+        }
+        
+        // Informations sur les limites et qualité
+        const userLimit = voiceChannel.userLimit || 'Illimitée';
+        const bitrate = Math.round(voiceChannel.bitrate / 1000);
+        const region = voiceChannel.rtcRegion || 'Automatique';
+        
+        // Récupérer les données du salon pour les utilisateurs bannis
+        const bannedCount = channelData?.blacklistedUsers?.length || 0;
+        const authorizedCount = channelData?.authorizedUsers?.length || 0;
+
+        // Déterminer les statuts pour les boutons
+        const isLocked = everyoneOverwrite && everyoneOverwrite.deny.has('Connect') && !everyoneOverwrite.deny.has('ViewChannel');
+        const isInvisible = everyoneOverwrite && everyoneOverwrite.deny.has('ViewChannel');
+
+        const embed = new EmbedBuilder()
+            .setTitle('🎤 **Panneau de Configuration Vocal**')
+            .setDescription(`
+> **🏠 Propriétaire :** \`${owner.displayName}\`
+> **📍 Salon :** \`${voiceChannel.name}\`
+> 
+> ${privacyStatus} • *${privacyDescription}*
+
+## 🎯 **Bienvenue dans votre salon vocal personnel !**
+
+Vous êtes maintenant le **propriétaire** de ce salon vocal. Utilisez les boutons ci-dessous pour personnaliser et gérer votre espace selon vos préférences.
+
+### ✨ **Fonctionnalités disponibles :**
+\`\`\`
+👥 Gestion des Membres
+   • Expulser des membres indésirables
+   • Bannir/Débannir des utilisateurs
+   
+🔒 Contrôle d'Accès  
+   • Basculer entre public/privé
+   • Gérer les permissions spéciales
+   
+⚙️ Personnalisation
+   • Modifier le nom du salon
+   • Ajuster la limite d'utilisateurs
+   • Configurer la qualité audio
+\`\`\`
+
+> 🔒 **Note importante :** Seul le **propriétaire** du salon peut utiliser ces commandes.
+            `)
+            .setColor('#5865F2')
+            .addFields([
+                {
+                    name: '👥 **Membres Connectés**',
+                    value: `\`\`\`yaml\nTotal: ${memberCount} ${memberCount === 1 ? 'personne' : 'personnes'}\n\`\`\`${memberCount > 0 ? `**Membres :** \`${membersList.length > 50 ? membersList.substring(0, 47) + '...' : membersList}\`` : '> *🔇 Salon actuellement vide*'}`,
+                    inline: true
+                },
+                {
+                    name: '⚙️ **Configuration du Salon**',
+                    value: `\`\`\`yaml\nLimite: ${userLimit === 0 ? 'Illimitée' : userLimit + ' personnes'}\nQualité: ${bitrate} kbps\nRégion: ${region}\n\`\`\``,
+                    inline: true
+                },
+                {
+                    name: '🛡️ **Sécurité & Permissions**',
+                    value: `\`\`\`yaml\nBannis: ${bannedCount} utilisateur${bannedCount > 1 ? 's' : ''}\nAutorisés: ${authorizedCount} permission${authorizedCount > 1 ? 's' : ''}\n\`\`\`**Statut :** ${privacyStatus.replace(/\*\*/g, '')}`,
+                    inline: true
+                }
+            ])
+            .setThumbnail(owner.displayAvatarURL({ dynamic: true }))
+            .setFooter({ 
+                text: `🎮 Système Auto Voice Channels • Dernière mise à jour`, 
+                iconURL: voiceChannel.guild.iconURL({ dynamic: true }) 
+            })
+            .setTimestamp();
+
+        // Vérifier si un mot de passe est configuré
+        const hasPassword = channelData?.password && channelData.password.enabled;
+        
+        // Première rangée - Contrôles de confidentialité en temps réel
+        const row1 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_privacy_${voiceChannel.id}`)
+                    .setLabel(privacyButtonLabel)
+                    .setEmoji(privacyButtonEmoji)
+                    .setStyle(isPrivate ? ButtonStyle.Success : ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_password_${voiceChannel.id}`)
+                    .setLabel(hasPassword ? 'Modifier MDP' : 'Mot de Passe')
+                    .setEmoji(hasPassword ? '🔐' : '🔒')
+                    .setStyle(hasPassword ? ButtonStyle.Success : ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_invisible_${voiceChannel.id}`)
+                    .setLabel(isInvisible ? 'Rendre visible' : 'Rendre invisible')
+                    .setEmoji(isInvisible ? '👁️' : '👻')
+                    .setStyle(isInvisible ? ButtonStyle.Success : ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_refresh_${voiceChannel.id}`)
+                    .setLabel(`Actualiser`)
+                    .setEmoji('🔄')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        // Deuxième rangée - Gestion des membres
+        const row2 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_kick_${voiceChannel.id}`)
+                    .setLabel(memberCount <= 1 ? 'Aucun membre' : `Expulser`)
+                    .setEmoji(memberCount <= 1 ? '😴' : '🦵')
+                    .setStyle(memberCount <= 1 ? ButtonStyle.Secondary : ButtonStyle.Danger)
+                    .setDisabled(memberCount <= 1),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_ban_${voiceChannel.id}`)
+                    .setLabel(memberCount <= 1 ? 'Aucun membre' : `Bannir`)
+                    .setEmoji(memberCount <= 1 ? '😴' : '🔨')
+                    .setStyle(memberCount <= 1 ? ButtonStyle.Secondary : ButtonStyle.Danger)
+                    .setDisabled(memberCount <= 1),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_unban_${voiceChannel.id}`)
+                    .setLabel(bannedCount === 0 ? 'Aucun banni' : `Débannir`)
+                    .setEmoji(bannedCount === 0 ? '✅' : '🔓')
+                    .setStyle(bannedCount === 0 ? ButtonStyle.Secondary : ButtonStyle.Success)
+                    .setDisabled(bannedCount === 0),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_permissions_${voiceChannel.id}`)
+                    .setLabel('Permissions')
+                    .setEmoji('🔑')
+                    .setStyle(authorizedCount > 0 ? ButtonStyle.Success : ButtonStyle.Primary)
+            );
+
+        // Troisième rangée - Configuration et statistiques
+        const row3 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_settings_${voiceChannel.id}`)
+                    .setLabel('Paramètres')
+                    .setEmoji('⚙️')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_stats_${voiceChannel.id}`)
+                    .setLabel('Statistiques')
+                    .setEmoji('📊')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_claim_${voiceChannel.id}`)
+                    .setLabel('Transférer')
+                    .setEmoji('👑')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId(`autovoice_delete_${voiceChannel.id}`)
+                    .setLabel('Supprimer')
+                    .setEmoji('🗑️')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+        return {
+            embed: embed,
+            components: [row1, row2, row3]
+        };
+
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de la création des données du panneau:', error);
+        throw error;
+    }
+}
+
+// Fonction utilitaire pour mettre à jour le panneau de gestion (SANS SUPPRIMER)
+async function updateManagementPanel(channel, channelData) {
+    try {
+        console.log(`[AUTO-VOICE] 🔄 Mise à jour du panneau pour ${channel.name} (conservation des messages)`);
+        
+        const owner = await channel.guild.members.fetch(channelData.ownerId);
+        let existingPanel = null;
+        
+        // Essayer d'abord avec l'ID sauvegardé
+        if (channelData.panelMessageId) {
+            try {
+                existingPanel = await channel.messages.fetch(channelData.panelMessageId);
+                console.log(`[AUTO-VOICE] 📍 Panneau trouvé via ID sauvegardé: ${channelData.panelMessageId}`);
+            } catch (error) {
+                console.log(`[AUTO-VOICE] ⚠️ Panneau avec ID ${channelData.panelMessageId} introuvable, recherche manuelle...`);
+            }
+        }
+        
+        // Si pas trouvé par ID, chercher manuellement
+        if (!existingPanel) {
+            const messages = await channel.messages.fetch({ limit: 15 });
+            existingPanel = messages.find(msg => 
+                msg.author.id === channel.client.user.id && 
                 msg.embeds.length > 0 && 
                 msg.embeds[0].title?.includes('Panneau de Configuration Vocal')
             );
             
-            for (const message of botMessages.values()) {
-                await message.delete();
+            if (existingPanel) {
+                console.log(`[AUTO-VOICE] 🔍 Panneau trouvé par recherche manuelle: ${existingPanel.id}`);
+                // Sauvegarder le nouvel ID
+                channelData.panelMessageId = existingPanel.id;
+                const autoVoiceData = loadAutoVoiceData();
+                const guildId = channel.guild.id;
+                const userChannelKey = Object.keys(autoVoiceData[guildId].userChannels).find(
+                    key => autoVoiceData[guildId].userChannels[key].channelId === channel.id
+                );
+                if (userChannelKey) {
+                    autoVoiceData[guildId].userChannels[userChannelKey] = channelData;
+                    saveAutoVoiceData(autoVoiceData);
+                }
             }
-        } catch (deleteError) {
-            // console.log('[AUTO-VOICE] Impossible de supprimer l\'ancien panneau:', deleteError.message);
         }
         
-        // Créer un nouveau panneau avec les informations mises à jour
-        await createManagementPanel(channel, owner);
+        if (existingPanel) {
+            // Mettre à jour le panneau existant
+            console.log(`[AUTO-VOICE] 📝 Mise à jour du panneau existant pour ${channel.name}`);
+            
+            const updatedPanelData = await createUpdatedPanelData(channel, owner, channelData);
+            
+            try {
+                await existingPanel.edit({
+                    embeds: [updatedPanelData.embed],
+                    components: updatedPanelData.components
+                });
+                console.log(`[AUTO-VOICE] ✅ Panneau mis à jour avec succès pour ${channel.name} (message conservé)`);
+            } catch (editError) {
+                console.error('[AUTO-VOICE] ❌ Erreur lors de la mise à jour du panneau:', editError);
+                // Si la mise à jour échoue, créer un nouveau panneau
+                console.log(`[AUTO-VOICE] 🆕 Création d'un nouveau panneau suite à l'erreur`);
+                const { createManagementPanel } = await import('../events/voiceStateUpdate.js');
+                const newPanel = await createManagementPanel(channel, owner);
+                if (newPanel) {
+                    channelData.panelMessageId = newPanel.id;
+                    const autoVoiceData = loadAutoVoiceData();
+                    const guildId = channel.guild.id;
+                    const userChannelKey = Object.keys(autoVoiceData[guildId].userChannels).find(
+                        key => autoVoiceData[guildId].userChannels[key].channelId === channel.id
+                    );
+                    if (userChannelKey) {
+                        autoVoiceData[guildId].userChannels[userChannelKey] = channelData;
+                        saveAutoVoiceData(autoVoiceData);
+                    }
+                }
+            }
+        } else {
+            // Créer un nouveau panneau si aucun n'existe
+            console.log(`[AUTO-VOICE] 🆕 Aucun panneau existant trouvé, création d'un nouveau pour ${channel.name}`);
+            const { createManagementPanel } = await import('../events/voiceStateUpdate.js');
+            const newPanel = await createManagementPanel(channel, owner);
+            if (newPanel) {
+                channelData.panelMessageId = newPanel.id;
+                const autoVoiceData = loadAutoVoiceData();
+                const guildId = channel.guild.id;
+                const userChannelKey = Object.keys(autoVoiceData[guildId].userChannels).find(
+                    key => autoVoiceData[guildId].userChannels[key].channelId === channel.id
+                );
+                if (userChannelKey) {
+                    autoVoiceData[guildId].userChannels[userChannelKey] = channelData;
+                    saveAutoVoiceData(autoVoiceData);
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de la mise à jour du panneau:', error);
+    }
+}
+
+// 🔐 Action: Gestion du mot de passe
+async function handlePasswordAction(interaction, channel, channelData) {
+    try {
+        const hasPassword = channelData.password && channelData.password.enabled;
+        
+        const modal = new ModalBuilder()
+            .setCustomId(`autovoice_password_modal_${channel.id}`)
+            .setTitle(hasPassword ? '🔐 Modifier le Mot de Passe' : '🔐 Définir un Mot de Passe');
+
+        // Si il y a déjà un mot de passe, demander le mot de passe actuel
+        if (hasPassword) {
+            const currentPasswordInput = new TextInputBuilder()
+                .setCustomId('current_password')
+                .setLabel('Mot de passe actuel')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Entrez le mot de passe actuel pour le modifier')
+                .setRequired(true)
+                .setMaxLength(50);
+
+            const newPasswordInput = new TextInputBuilder()
+                .setCustomId('new_password')
+                .setLabel('Nouveau mot de passe')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Nouveau mot de passe (laissez vide pour SUPPRIMER la protection)')
+                .setRequired(false)
+                .setMaxLength(50);
+
+            const confirmPasswordInput = new TextInputBuilder()
+                .setCustomId('confirm_password')
+                .setLabel('Confirmer le nouveau mot de passe')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Confirmez le nouveau mot de passe (si vous en définissez un)')
+                .setRequired(false)
+                .setMaxLength(50);
+
+            const rows = [
+                new ActionRowBuilder().addComponents(currentPasswordInput),
+                new ActionRowBuilder().addComponents(newPasswordInput),
+                new ActionRowBuilder().addComponents(confirmPasswordInput)
+            ];
+
+            modal.addComponents(...rows);
+        } else {
+            // Pas de mot de passe existant, interface simplifiée
+            const newPasswordInput = new TextInputBuilder()
+                .setCustomId('new_password')
+                .setLabel('Mot de passe du salon')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Définissez un mot de passe pour protéger votre salon')
+                .setRequired(true)
+                .setMinLength(4)
+                .setMaxLength(50);
+
+            const confirmPasswordInput = new TextInputBuilder()
+                .setCustomId('confirm_password')
+                .setLabel('Confirmer le mot de passe')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Confirmez votre mot de passe')
+                .setRequired(true)
+                .setMaxLength(50);
+
+            const descriptionInput = new TextInputBuilder()
+                .setCustomId('password_description')
+                .setLabel('Description (optionnel)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Ex: "Salon privé entre amis"')
+                .setRequired(false)
+                .setMaxLength(100);
+
+            const rows = [
+                new ActionRowBuilder().addComponents(newPasswordInput),
+                new ActionRowBuilder().addComponents(confirmPasswordInput),
+                new ActionRowBuilder().addComponents(descriptionInput)
+            ];
+
+            modal.addComponents(...rows);
+        }
+
+        await interaction.showModal(modal);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de l\'ouverture du modal mot de passe:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 🔓 Action: Déverrouillage avec mot de passe
+async function handlePasswordUnlockAction(interaction, channel, channelData) {
+    try {
+        if (!channelData.password || !channelData.password.enabled) {
+            return await sendErrorEmbed(interaction, 'Aucun mot de passe', 'Ce salon n\'est pas protégé par un mot de passe.');
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`autovoice_unlock_modal_${channel.id}`)
+            .setTitle('🔓 Déverrouillage du Salon');
+
+        const passwordInput = new TextInputBuilder()
+            .setCustomId('unlock_password')
+            .setLabel('Mot de passe du salon')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Entrez le mot de passe pour accéder au salon')
+            .setRequired(true)
+            .setMaxLength(50);
+
+        const row = new ActionRowBuilder().addComponents(passwordInput);
+        modal.addComponents(row);
+
+        await interaction.showModal(modal);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors du déverrouillage:', error);
+        await sendSystemErrorEmbed(interaction, error);
+    }
+}
+
+// 🔒 Fonction pour appliquer les restrictions de mot de passe
+async function applyPasswordRestrictions(member, channel) {
+    try {
+        console.log(`[AUTO-VOICE] 🔒 Application des restrictions de mot de passe pour ${member.displayName}`);
+        
+        // Appliquer les restrictions vocales
+        if (member.voice.channel && member.voice.channel.id === channel.id) {
+            await member.voice.setMute(true, 'Salon protégé par mot de passe');
+            await member.voice.setDeaf(true, 'Salon protégé par mot de passe');
+        }
+        
+        // Appliquer les restrictions de permissions
+        await channel.permissionOverwrites.edit(member.id, {
+            SendMessages: false,
+            ViewChannel: true,
+            Connect: true,
+            Speak: false,
+            Stream: false,
+            UseVAD: false,
+            UseEmbeddedActivities: false,
+            UseSoundboard: false
+        });
+        
+        console.log(`[AUTO-VOICE] ✅ Restrictions appliquées pour ${member.displayName}`);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de l\'application des restrictions:', error);
+    }
+}
+
+// 🔓 Fonction pour supprimer les restrictions de mot de passe
+async function removePasswordRestrictions(member, channel) {
+    try {
+        console.log(`[AUTO-VOICE] 🔓 Suppression des restrictions pour ${member.displayName}`);
+        
+        // Supprimer les restrictions vocales
+        if (member.voice.channel && member.voice.channel.id === channel.id) {
+            await member.voice.setMute(false, 'Mot de passe correct');
+            await member.voice.setDeaf(false, 'Mot de passe correct');
+        }
+        
+        // Restaurer les permissions normales
+        await channel.permissionOverwrites.edit(member.id, {
+            SendMessages: null,
+            Speak: null,
+            Stream: null,
+            UseVAD: null,
+            UseEmbeddedActivities: null,
+            UseSoundboard: null
+        });
+        
+        console.log(`[AUTO-VOICE] ✅ Restrictions supprimées pour ${member.displayName}`);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de la suppression des restrictions:', error);
+    }
+}
+
+// 📨 Fonction pour envoyer le message de déverrouillage
+async function sendPasswordUnlockMessage(channel, member, channelData) {
+    try {
+        const owner = await channel.guild.members.fetch(channelData.ownerId);
         
         const embed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setTitle('🔄 Panneau actualisé')
-            .setDescription('✅ Le panneau de gestion a été mis à jour avec les informations en temps réel.')
+            .setColor(COLORS.WARNING)
+            .setTitle('🔐 **Salon Protégé par Mot de Passe**')
+            .setDescription(`${member}, ce salon nécessite un mot de passe pour accéder à toutes les fonctionnalités.`)
             .addFields([
-                { name: '🎵 Salon', value: `<#${channel.id}>`, inline: true },
-                { name: '👥 Membres', value: `${channel.members.size} connectés`, inline: true },
-                { name: '⏰ Mise à jour', value: 'Maintenant', inline: true }
+                { 
+                    name: '🏠 **Informations du Salon**', 
+                    value: `**Propriétaire :** ${owner.displayName}\n**Salon :** ${channel.name}`, 
+                    inline: true 
+                },
+                { 
+                    name: '🚫 **Restrictions Actuelles**', 
+                    value: '• 🔇 Muet activé\n• 🔕 Sourd activé\n• 💬 Chat désactivé\n• 📹 Caméra bloquée', 
+                    inline: true 
+                },
+                { 
+                    name: '🔓 **Pour Débloquer l\'Accès**', 
+                    value: 'Cliquez sur **"Entrer le Mot de Passe"** ci-dessous.', 
+                    inline: false 
+                }
             ])
+            .setThumbnail(member.displayAvatarURL({ dynamic: true }))
+            .setFooter({ text: '🔐 Entrez le mot de passe pour accéder au salon' })
             .setTimestamp();
-            
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        // console.log(`[AUTO-VOICE] 🔄 Panneau actualisé pour le salon ${channel.name} par ${interaction.user.tag}`);
-        
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors de l\'actualisation du panneau:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur d\'actualisation')
-            .setDescription('Impossible d\'actualiser le panneau de gestion.')
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
 
-// 🗑️ Action: Delete Channel
-async function handleDeleteAction(interaction, channel, channelData) {
-    try {
-        const confirmEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('⚠️ Confirmation de suppression')
-            .setDescription('Êtes-vous sûr de vouloir supprimer définitivement ce salon vocal ?')
-            .addFields([
-                { name: '🎵 Salon à supprimer', value: `<#${channel.id}>`, inline: true },
-                { name: '👥 Membres connectés', value: `${channel.members.size}`, inline: true },
-                { name: '⚠️ Attention', value: 'Cette action est irréversible !', inline: false }
-            ])
-            .setTimestamp();
-        
-        const confirmButton = new ButtonBuilder()
-            .setCustomId(`confirm_delete_${channel.id}`)
-            .setLabel('Confirmer la suppression')
-            .setEmoji('🗑️')
-            .setStyle(ButtonStyle.Danger);
-            
-        const cancelButton = new ButtonBuilder()
-            .setCustomId(`cancel_delete_${channel.id}`)
-            .setLabel('Annuler')
-            .setEmoji('❌')
-            .setStyle(ButtonStyle.Secondary);
-        
-        const row = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
-        
-        await interaction.reply({ embeds: [confirmEmbed], components: [row], flags: MessageFlags.Ephemeral });
-        
-        // Attendre la confirmation
-        const filter = (i) => i.user.id === interaction.user.id && (i.customId.startsWith('confirm_delete_') || i.customId.startsWith('cancel_delete_'));
-        const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
-        
-        collector.on('collect', async (i) => {
-            if (i.customId.startsWith('confirm_delete_')) {
-                try {
-                    // Supprimer les données
-                    const autoVoiceData = loadAutoVoiceData();
-                    const guildId = interaction.guild.id;
-                    delete autoVoiceData[guildId].userChannels[channelData.ownerId];
-                    saveAutoVoiceData(autoVoiceData);
-                    
-                    // Supprimer le salon
-                    await channel.delete();
-                    
-                    const successEmbed = new EmbedBuilder()
-                        .setColor('#00FF00')
-                        .setTitle('✅ **Salon Supprimé avec Succès**')
-                        .setDescription(`
-> 🗑️ **Suppression terminée**
-> Le salon vocal a été **définitivement supprimé** du serveur.
-
-\`\`\`yaml
-Salon supprimé: ${channel.name}
-Propriétaire: ${interaction.user.displayName}
-Date: ${new Date().toLocaleString('fr-FR')}
-\`\`\`
-
-**🔄 Action suivante :** Vous pouvez créer un nouveau salon en rejoignant un salon "Créer Salon Vocal".
-                        `)
-                        .setTimestamp();
-                    
-                    await i.update({ embeds: [successEmbed], components: [] });
-                    // console.log(`[AUTO-VOICE] 🗑️ Salon ${channel.name} supprimé par ${interaction.user.tag}`);
-                    
-                } catch (error) {
-                    console.error('[AUTO-VOICE] Erreur lors de la suppression:', error);
-                    
-                    const errorEmbed = new EmbedBuilder()
-                        .setColor('#FF0000')
-                        .setTitle('❌ **Erreur de Suppression**')
-                        .setDescription(`
-> ⚠️ **Problème technique**
-> Impossible de supprimer le salon vocal.
-
-\`\`\`yaml
-Salon: ${channel.name}
-Erreur: Suppression échouée
-Statut: Salon toujours actif
-\`\`\`
-
-**💡 Solutions possibles :**
-• Vérifiez les permissions du bot
-• Réessayez dans quelques instants
-• Contactez un administrateur si le problème persiste
-                        `)
-                        .setTimestamp();
-                    
-                    await i.update({ embeds: [errorEmbed], components: [] });
-                }
-            } else {
-                const cancelEmbed = new EmbedBuilder()
-                    .setColor('#FFA500')
-                    .setTitle('❌ Suppression annulée')
-                    .setDescription('La suppression du salon a été annulée.')
-                    .setTimestamp();
-                
-                await i.update({ embeds: [cancelEmbed], components: [] });
-            }
-            collector.stop();
-        });
-        
-        collector.on('end', async (collected) => {
-            if (collected.size === 0) {
-                const timeoutEmbed = new EmbedBuilder()
-                    .setColor('#FFA500')
-                    .setTitle('⏰ Temps écoulé')
-                    .setDescription('La demande de suppression a expiré.')
-                    .setTimestamp();
-                
-                try {
-                    await interaction.editReply({ embeds: [timeoutEmbed], components: [] });
-                } catch (error) {
-                    // console.log('[AUTO-VOICE] Impossible de modifier la réponse expirée');
-                }
-            }
-        });
-        
-    } catch (error) {
-        console.error('[AUTO-VOICE] Erreur lors de la demande de suppression:', error);
-        
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ Erreur')
-            .setDescription('Impossible de traiter la demande de suppression.')
-            .setTimestamp();
-        
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-    }
-}
-
-// Gestionnaire pour l'action logs avec temps réel
-async function handleLogsAction(interaction, channel, channelData) {
-    try {
-        const logs = loadVoiceActivityLogs();
-        const channelLogs = logs[channel.id] || {};
-        
-        // Fonction pour formater la durée en temps réel
-        function formatDurationRealTime(milliseconds) {
-            if (!milliseconds || milliseconds <= 0) return '0s';
-            
-            const seconds = Math.floor(milliseconds / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-            
-            if (days > 0) return `${days}j ${hours % 24}h ${minutes % 60}m ${seconds % 60}s`;
-            if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-            if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-            return `${seconds}s`;
-        }
-        
-        // Fonction pour formater la date
-        function formatDate(dateString) {
-            if (!dateString) return 'Jamais';
-            const date = new Date(dateString);
-            return `<t:${Math.floor(date.getTime() / 1000)}:R>`;
-        }
-        
-        // Fonction pour créer l'embed avec données en temps réel
-        function createLogsEmbed() {
-            const currentTime = Date.now();
-            
-            if (Object.keys(channelLogs).length === 0) {
-                return new EmbedBuilder()
-                    .setColor('#FFA500')
-                    .setTitle('📊 **Logs d\'activité vocale - Temps Réel**')
-                    .setDescription(`
-> 📋 **Aucune activité enregistrée**
-> Ce salon n'a pas encore d'historique d'activité vocale.
-
-\`\`\`yaml
-Salon: ${channel.name}
-Statut: Nouveau salon
-Activité: Aucune donnée
-Mise à jour: ${new Date().toLocaleTimeString('fr-FR')}
-\`\`\`
-
-**💡 Info :** Les logs commenceront à s'enregistrer dès que des utilisateurs rejoindront ce salon.
-                    `)
-                    .setTimestamp();
-            }
-            
-            // Identifier les utilisateurs actuellement connectés
-            const connectedMembers = channel.members.filter(member => !member.user.bot);
-            const connectedUserIds = connectedMembers.map(member => member.id);
-            
-            // Calculer les sessions en cours
-            const activeSessions = [];
-            connectedUserIds.forEach(userId => {
-                const userData = channelLogs[userId];
-                if (userData && userData.sessions && userData.sessions.length > 0) {
-                    const lastSession = userData.sessions[userData.sessions.length - 1];
-                    if (lastSession.joinTime && !lastSession.leaveTime) {
-                        const sessionDuration = currentTime - new Date(lastSession.joinTime).getTime();
-                        activeSessions.push({
-                            username: userData.username,
-                            joinTime: new Date(lastSession.joinTime),
-                            currentDuration: sessionDuration,
-                            userId: userId
-                        });
-                    }
-                }
-            });
-            
-            // Trier les utilisateurs par nombre de connexions
-            const sortedUsers = Object.entries(channelLogs)
-                .sort(([,a], [,b]) => b.joinCount - a.joinCount)
-                .slice(0, 8); // Top 8 pour laisser place aux sessions actives
-            
-            // Calculer les statistiques globales
-            const totalUsers = Object.keys(channelLogs).length;
-            const totalConnections = Object.values(channelLogs).reduce((sum, user) => sum + user.joinCount, 0);
-            const totalTimeSpent = Object.values(channelLogs).reduce((sum, user) => sum + (user.totalTimeSpent || 0), 0);
-            
-            // Ajouter le temps des sessions en cours au total
-            const currentSessionTime = activeSessions.reduce((sum, session) => sum + session.currentDuration, 0);
-            const totalTimeWithCurrent = totalTimeSpent + currentSessionTime;
-            
-            // Créer l'embed principal
-            const logsEmbed = new EmbedBuilder()
-                .setColor('#00FF88')
-                .setTitle('📊 **Logs d\'activité vocale - Temps Réel**')
-                .setDescription(`
-> 🎯 **Statistiques du salon**
-> Données mises à jour en temps réel toutes les 10 secondes.
-
-\`\`\`yaml
-Salon: ${channel.name}
-Utilisateurs uniques: ${totalUsers}
-Connexions totales: ${totalConnections}
-Temps total passé: ${formatDurationRealTime(totalTimeWithCurrent)}
-Connectés maintenant: ${connectedMembers.size} personne${connectedMembers.size > 1 ? 's' : ''}
-Mise à jour: ${new Date().toLocaleTimeString('fr-FR')}
-\`\`\`
-                `)
-                .setTimestamp();
-            
-            // Ajouter les sessions actives en temps réel
-            if (activeSessions.length > 0) {
-                const activeSessionsText = activeSessions.map(session => {
-                    return `🟢 **${session.username}**\n` +
-                           `   └ Session en cours: ${formatDurationRealTime(session.currentDuration)}\n` +
-                           `   └ Connecté depuis: ${formatDate(session.joinTime.toISOString())}`;
-                }).join('\n\n');
-                
-                logsEmbed.addFields([
-                    { 
-                        name: '🔴 **Sessions actives en temps réel**', 
-                        value: activeSessionsText.length > 1024 ? activeSessionsText.substring(0, 1021) + '...' : activeSessionsText, 
-                        inline: false 
-                    }
-                ]);
-            }
-            
-            // Ajouter le top des utilisateurs
-            if (sortedUsers.length > 0) {
-                const topUsersText = sortedUsers.map(([userId, userData], index) => {
-                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-                    const isOnline = connectedUserIds.includes(userId) ? '🟢' : '⚫';
-                    
-                    // Calculer le temps total incluant la session en cours si applicable
-                    let totalTime = userData.totalTimeSpent || 0;
-                    if (connectedUserIds.includes(userId)) {
-                        const activeSession = activeSessions.find(s => s.userId === userId);
-                        if (activeSession) {
-                            totalTime += activeSession.currentDuration;
-                        }
-                    }
-                    
-                    return `${medal} ${isOnline} **${userData.username}**\n` +
-                           `   └ ${userData.joinCount} connexions • ${formatDurationRealTime(totalTime)} total\n` +
-                           `   └ Dernière visite: ${formatDate(userData.lastJoin)}`;
-                }).join('\n\n');
-                
-                logsEmbed.addFields([
-                    { 
-                        name: '👥 **Top utilisateurs les plus actifs**', 
-                        value: topUsersText.length > 1024 ? topUsersText.substring(0, 1021) + '...' : topUsersText, 
-                        inline: false 
-                    }
-                ]);
-            }
-            
-            return logsEmbed;
-        }
-        
-        // Boutons pour actualisation automatique et manuelle
-        const actionButtons = new ActionRowBuilder()
+        const unlockButton = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`autovoice_logs_realtime_${channel.id}`)
-                    .setLabel('Mode Temps Réel (10s)')
-                    .setEmoji('🔴')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId(`autovoice_logs_${channel.id}`)
-                    .setLabel('Actualiser maintenant')
-                    .setEmoji('🔄')
-                    .setStyle(ButtonStyle.Secondary)
+                    .setCustomId(`autovoice_unlock_${channel.id}`)
+                    .setLabel('Entrer le Mot de Passe')
+                    .setEmoji('🔐')
+                    .setStyle(ButtonStyle.Primary)
             );
-        
-        // Envoyer la réponse initiale
-        const initialEmbed = createLogsEmbed();
-        const response = await interaction.reply({ 
-            embeds: [initialEmbed], 
-            components: [actionButtons],
-            flags: MessageFlags.Ephemeral,
-            fetchReply: true
+
+        // Envoyer le message directement dans le canal vocal (visible par tous)
+        console.log(`[AUTO-VOICE] 📨 Envoi du message de mot de passe dans le canal vocal pour ${member.displayName}`);
+        const publicMessage = await channel.send({ 
+            content: `🔐 **Nouveau membre détecté !**`,
+            embeds: [embed], 
+            components: [unlockButton]
         });
         
-        // Système de mise à jour automatique toutes les 10 secondes
-        let updateCount = 0;
-        const maxUpdates = 30; // 5 minutes maximum (30 * 10s)
-        
-        const updateInterval = setInterval(async () => {
+        // Supprimer le message après 60 secondes pour éviter l'encombrement
+        setTimeout(async () => {
             try {
-                updateCount++;
-                
-                // Arrêter après 5 minutes pour éviter la surcharge
-                if (updateCount >= maxUpdates) {
-                    clearInterval(updateInterval);
-                    
-                    // Message final indiquant l'arrêt de la mise à jour
-                    const finalEmbed = createLogsEmbed()
-                        .setColor('#FF6B6B')
-                        .setFooter({ text: '⏰ Mise à jour automatique arrêtée après 5 minutes. Cliquez sur "Actualiser" pour continuer.' });
-                    
-                    const finalButtons = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`autovoice_logs_${channel.id}`)
-                                .setLabel('Actualiser les logs')
-                                .setEmoji('🔄')
-                                .setStyle(ButtonStyle.Primary)
-                        );
-                    
-                    await response.edit({ 
-                        embeds: [finalEmbed], 
-                        components: [finalButtons] 
-                    });
-                    return;
-                }
-                
-                // Recharger les logs pour avoir les données les plus récentes
-                const updatedLogs = loadVoiceActivityLogs();
-                Object.assign(channelLogs, updatedLogs[channel.id] || {});
-                
-                // Créer l'embed mis à jour
-                const updatedEmbed = createLogsEmbed();
-                
-                // Mettre à jour le message
-                await response.edit({ 
-                    embeds: [updatedEmbed], 
-                    components: [actionButtons] 
-                });
-                
-            } catch (error) {
-                console.error('[VOICE-LOGS] ❌ Erreur lors de la mise à jour automatique:', error);
-                clearInterval(updateInterval);
+                await publicMessage.delete();
+                console.log(`[AUTO-VOICE] 🗑️ Message de mot de passe supprimé automatiquement`);
+            } catch (deleteError) {
+                console.error('[AUTO-VOICE] Erreur lors de la suppression du message temporaire:', deleteError);
             }
-        }, 10000); // Mise à jour toutes les 10 secondes
-        
-        // console.log(`[VOICE-LOGS] ✅ Logs temps réel démarrés pour ${interaction.user.displayName} - Canal: ${channel.name}`);
+        }, 60000); // 60 secondes au lieu de 30
         
     } catch (error) {
-        console.error('[VOICE-LOGS] ❌ Erreur lors de l\'affichage des logs:', error);
+        console.error('[AUTO-VOICE] ❌ Erreur lors de l\'envoi du message de déverrouillage:', error);
+    }
+}
+
+// 🔍 Fonction pour vérifier si un utilisateur est autorisé
+function isUserAuthorized(userId, channelData) {
+    if (!channelData.password || !channelData.password.enabled) {
+        return true; // Pas de mot de passe = accès libre
+    }
+    
+    // Le propriétaire a toujours accès
+    if (userId === channelData.ownerId) {
+        return true;
+    }
+    
+    // Vérifier la liste des utilisateurs autorisés
+    return channelData.password.authorizedUsers && channelData.password.authorizedUsers.includes(userId);
+}
+
+// 🔐 Fonction pour hasher un mot de passe
+async function hashPassword(password) {
+    try {
+        const saltRounds = 12;
+        return await bcrypt.hash(password, saltRounds);
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors du hashage du mot de passe:', error);
+        throw error;
+    }
+}
+
+// 🔍 Fonction pour vérifier un mot de passe
+async function verifyPassword(password, hash) {
+    try {
+        return await bcrypt.compare(password, hash);
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de la vérification du mot de passe:', error);
+        return false;
+    }
+}
+
+// Gestionnaires pour les autres actions (simplifiés pour l'instant)
+async function handleUnbanAction(interaction, channel, channelData) {
+    await sendInfoEmbed(interaction, 'Fonction Débannir', 'Cette fonction avancée sera bientôt disponible.');
+}
+
+async function handleBlacklistAction(interaction, channel, channelData) {
+    await sendInfoEmbed(interaction, 'Fonction Blacklist', 'Cette fonction avancée sera bientôt disponible.');
+}
+
+async function handlePermissionsAction(interaction, channel, channelData) {
+    await sendInfoEmbed(interaction, 'Fonction Permissions', 'Cette fonction avancée sera bientôt disponible.');
+}
+
+async function handleEditAction(interaction, channel, channelData) {
+    await sendInfoEmbed(interaction, 'Fonction Modifier', 'Utilisez le bouton "Paramètres" pour modifier le salon.');
+}
+
+async function handleClaimAction(interaction, channel, channelData) {
+    await sendInfoEmbed(interaction, 'Fonction Transférer', 'Cette fonction avancée sera bientôt disponible.');
+}
+
+async function handleLogsAction(interaction, channel, channelData) {
+    await sendInfoEmbed(interaction, 'Fonction Logs', 'Utilisez le bouton "Statistiques" pour voir les données détaillées.');
+}
+
+
+
+async function handleDeleteConfirm(interaction, channelId) {
+    try {
+        const channel = interaction.guild.channels.cache.get(channelId);
         
-        const errorEmbed = new EmbedBuilder()
-            .setColor('#FF0000')
-            .setTitle('❌ **Erreur lors du chargement des logs**')
-            .setDescription(`
-> 🔧 **Problème technique**
-> Impossible de charger les logs d'activité vocale.
+        if (!channel) {
+            return await sendErrorEmbed(interaction, 'Salon introuvable', 'Le salon vocal n\'existe plus.');
+        }
 
-\`\`\`yaml
-Erreur: ${error.message}
-Canal: ${channel.name}
-Action: Chargement des logs temps réel
-\`\`\`
-
-**💡 Solution :** Réessayez dans quelques instants ou contactez un administrateur.
-            `)
+        const autoVoiceData = loadAutoVoiceData();
+        const guildId = interaction.guild.id;
+        
+        // Supprimer les données
+        const userChannelKey = Object.keys(autoVoiceData[guildId]?.userChannels || {}).find(
+            key => autoVoiceData[guildId].userChannels[key].channelId === channelId
+        );
+        
+        if (userChannelKey) {
+            delete autoVoiceData[guildId].userChannels[userChannelKey];
+            saveAutoVoiceData(autoVoiceData);
+        }
+        
+        // Supprimer les statistiques
+        channelStats.delete(channelId);
+        
+        const embed = new EmbedBuilder()
+            .setColor(COLORS.SUCCESS)
+            .setTitle('🗑️ **Salon supprimé avec succès**')
+            .setDescription(`Le salon vocal **${channel.name}** a été supprimé définitivement.`)
+            .addFields([
+                { name: '✅ **Actions effectuées**', value: '• Salon supprimé\n• Données nettoyées\n• Statistiques effacées\n• Membres déconnectés', inline: false }
+            ])
+            .setFooter({ text: 'Suppression terminée' })
             .setTimestamp();
         
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        
+        // Supprimer le salon après un délai
+        setTimeout(async () => {
+            try {
+                await channel.delete('Supprimé par le propriétaire via le panneau de gestion');
+                console.log(`[AUTO-VOICE] ✅ Salon ${channel.name} supprimé avec succès`);
+            } catch (error) {
+                console.error('[AUTO-VOICE] ❌ Erreur lors de la suppression du salon:', error);
+            }
+        }, 3000);
+        
+    } catch (error) {
+        console.error('[AUTO-VOICE] ❌ Erreur lors de la confirmation de suppression:', error);
+        await sendSystemErrorEmbed(interaction, error);
     }
+}
+
+async function handleDeleteCancel(interaction) {
+    const embed = new EmbedBuilder()
+        .setColor(COLORS.SUCCESS)
+        .setTitle('✅ **Suppression annulée**')
+        .setDescription('Votre salon vocal est en sécurité et n\'a pas été supprimé.')
+        .addFields([
+            { name: '🛡️ **Salon préservé**', value: 'Toutes vos données et paramètres sont intacts.', inline: false }
+        ])
+        .setTimestamp();
+    
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
+// Gestionnaires pour les menus et modals (simplifiés)
+async function handleSelectMenuInteraction(interaction) {
+    await sendInfoEmbed(interaction, 'Menu de sélection', 'Cette fonction sera bientôt disponible.');
+}
+
+async function handleModalSubmit(interaction) {
+    await sendInfoEmbed(interaction, 'Modal', 'Cette fonction sera bientôt disponible.');
 }
 
 export {
     handleManagementButtons,
     handleSelectMenuInteraction,
     handleModalSubmit,
+    handlePrivacyAction,
+    handleLockAction,
+    handleInvisibleAction,
+    handleKickAction,
+    handleBanAction,
+    handleUnbanAction,
+    handleBlacklistAction,
+    handlePermissionsAction,
+    handleEditAction,
+    handleClaimAction,
     handleLogsAction,
+
+    handleRefreshAction,
+    handleDeleteAction,
+    handleDeleteConfirm,
+    handleDeleteCancel,
+    handleStatsAction,
+    handleSettingsAction,
+    handlePasswordAction,
+    handlePasswordUnlockAction,
+    updateManagementPanel,
     loadAutoVoiceData,
-    saveAutoVoiceData
+    saveAutoVoiceData,
+    updateChannelStats,
+    getChannelStatus,
+    getConnectionTime,
+    sendAccessDeniedEmbed,
+    sendSystemErrorEmbed,
+    sendErrorEmbed,
+    sendInfoEmbed,
+    isUserAuthorized,
+    applyPasswordRestrictions,
+    removePasswordRestrictions,
+    sendPasswordUnlockMessage,
+    hashPassword,
+    verifyPassword
 };

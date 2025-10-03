@@ -246,7 +246,7 @@ class MusicPanelHandler {
                 .setColor('#ff9900')
                 .addFields({
                     name: '🎵 En cours',
-                    value: `[${currentTrack.title}](${currentTrack.url})\nDemandé par <@${currentTrack.requestedBy.id}>`,
+                    value: `[${currentTrack.title}](${currentTrack.url})\nDemandé par ${currentTrack.requestedBy ? `<@${currentTrack.requestedBy.id}>` : 'Inconnu'}`,
                     inline: false
                 });
 
@@ -260,7 +260,7 @@ class MusicPanelHandler {
             .setColor('#00ff00')
             .addFields({
                 name: '🎵 En cours',
-                value: `[${currentTrack.title}](${currentTrack.url})\nDemandé par <@${currentTrack.requestedBy.id}>`,
+                value: `[${currentTrack.title}](${currentTrack.url})\nDemandé par ${currentTrack.requestedBy ? `<@${currentTrack.requestedBy.id}>` : 'Inconnu'}`,
                 inline: false
             });
 
@@ -270,7 +270,7 @@ class MusicPanelHandler {
         
         nextTracks.forEach((track, index) => {
             queueText += `**${index + 1}.** [${track.title}](${track.url})\n`;
-            queueText += `Demandé par <@${track.requestedBy.id}>\n\n`;
+            queueText += `Demandé par ${track.requestedBy ? `<@${track.requestedBy.id}>` : 'Inconnu'}\n\n`;
         });
 
         if (tracks.length > 10) {
