@@ -10,6 +10,14 @@
         "createdAt": 1758879344016,
         "bannedUsers": [],
         "blacklistedUsers": []
+      },
+      "487253607398375424": {
+        "channelId": "1427294856585154692",
+        "ownerId": "487253607398375424",
+        "createdAt": 1760364013608,
+        "bannedUsers": [],
+        "blacklistedUsers": [],
+        "panelMessageId": "1427294860557422743"
       }
     }
   }

@@ -3,6 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { config, assertConfig } from './config.js';
+import mongoose from 'mongoose';
+import { initializeSync } from './utils/syncAllJson.js';
+import { initializeSyncCategorized } from './utils/syncCategorizedJson.js';
 import logger from './utils/logger.js';
 import { initializeErrorFiltering } from './utils/errorFilter.js';
 import { displayStartupHeader, displayStartupFooter, displayDebugInfo } from './utils/startup.js';
@@ -29,6 +32,18 @@ async function main() {
   } catch (e) {
     logger.error(e.message);
     process.exit(1);
+  }
+
+  // Connecter MongoDB
+  const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://msk:msk123@discordbot.j5uxjzc.mongodb.net/discordbot';
+  try {
+    await mongoose.connect(mongoUri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('✅ MongoDB connecté !');
+  } catch (err) {
+    console.error('❌ Erreur de connexion MongoDB :', err.message);
   }
 
   const client = new Client({
@@ -73,6 +88,9 @@ async function main() {
       logger.error(`Erreur lors du chargement de l'événement ${file}:`, error);
     }
   }
+
+  // Initialiser la synchronisation JSON ⇄ MongoDB (catégorisée)
+  await initializeSyncCategorized();
 
   // Les interactions sont gérées par src/events/interactioncreate.js
 

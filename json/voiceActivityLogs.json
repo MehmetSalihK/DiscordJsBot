@@ -139,17 +139,27 @@
     },
     "487253607398375424": {
       "username": "sketur60",
-      "joinCount": 1,
-      "totalTimeSpent": 2061,
+      "joinCount": 3,
+      "totalTimeSpent": 6093,
       "sessions": [
         {
           "joinTime": "2025-10-03T14:53:51.860Z",
           "leaveTime": "2025-10-03T14:53:53.921Z",
           "duration": 2061
+        },
+        {
+          "joinTime": "2025-10-13T13:37:54.875Z",
+          "leaveTime": "2025-10-13T13:37:56.701Z",
+          "duration": 1826
+        },
+        {
+          "joinTime": "2025-10-13T14:00:11.331Z",
+          "leaveTime": "2025-10-13T14:00:13.537Z",
+          "duration": 2206
         }
       ],
-      "lastJoin": "2025-10-03T14:53:51.860Z",
-      "lastLeave": "2025-10-03T14:53:53.921Z"
+      "lastJoin": "2025-10-13T14:00:11.331Z",
+      "lastLeave": "2025-10-13T14:00:13.537Z"
     }
   },
   "1420335418255347825": {
@@ -836,6 +846,54 @@
       ],
       "lastJoin": "2025-10-03T15:12:58.381Z",
       "lastLeave": "2025-10-03T15:48:24.933Z"
+    }
+  },
+  "1427285165629116552": {
+    "487253607398375424": {
+      "username": "sketur60",
+      "joinCount": 1,
+      "totalTimeSpent": 2095,
+      "sessions": [
+        {
+          "joinTime": "2025-10-13T13:37:44.098Z",
+          "leaveTime": "2025-10-13T13:37:46.193Z",
+          "duration": 2095
+        }
+      ],
+      "lastJoin": "2025-10-13T13:37:44.098Z",
+      "lastLeave": "2025-10-13T13:37:46.193Z"
+    }
+  },
+  "1427289250969423952": {
+    "487253607398375424": {
+      "username": "sketur60",
+      "joinCount": 1,
+      "totalTimeSpent": 1332190,
+      "sessions": [
+        {
+          "joinTime": "2025-10-13T13:37:56.701Z",
+          "leaveTime": "2025-10-13T14:00:08.891Z",
+          "duration": 1332190
+        }
+      ],
+      "lastJoin": "2025-10-13T13:37:56.701Z",
+      "lastLeave": "2025-10-13T14:00:08.891Z"
+    }
+  },
+  "1427294856585154692": {
+    "487253607398375424": {
+      "username": "sketur60",
+      "joinCount": 1,
+      "totalTimeSpent": 0,
+      "sessions": [
+        {
+          "joinTime": "2025-10-13T14:00:13.537Z",
+          "leaveTime": null,
+          "duration": null
+        }
+      ],
+      "lastJoin": "2025-10-13T14:00:13.537Z",
+      "lastLeave": null
     }
   }
 }
