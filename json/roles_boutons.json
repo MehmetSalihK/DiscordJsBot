@@ -1,0 +1,44 @@
+{
+  "couleur": [
+    {
+      "name": "Rouge",
+      "roleId": "123456789012345678",
+      "color": "#FF0000"
+    },
+    {
+      "name": "Bleu",
+      "roleId": "123456789012345679",
+      "color": "#0000FF"
+    },
+    {
+      "name": "Vert",
+      "roleId": "123456789012345680",
+      "color": "#00FF00"
+    },
+    {
+      "name": "Jaune",
+      "roleId": "123456789012345681",
+      "color": "#FFFF00"
+    },
+    {
+      "name": "Violet",
+      "roleId": "123456789012345682",
+      "color": "#800080"
+    },
+    {
+      "name": "Orange",
+      "roleId": "123456789012345683",
+      "color": "#FFA500"
+    },
+    {
+      "name": "Rose",
+      "roleId": "123456789012345684",
+      "color": "#FFC0CB"
+    },
+    {
+      "name": "Cyan",
+      "roleId": "123456789012345685",
+      "color": "#00FFFF"
+    }
+  ]
+}

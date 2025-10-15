@@ -1,0 +1,278 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from './components/ui';
+import { ThemeProvider } from './components/theme-provider';
+import Sidebar from './components/Sidebar';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+// Types
+import type { 
+  PanelType, 
+  Stats, 
+  User, 
+  Member,
+  LeaderboardEntry 
+} from './types/app';
+
+// Constants
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+
+function App() {
+  // State for the currently selected panel
+  const [selectedPanel, setSelectedPanel] = useState<PanelType>('Aperçu');
+  
+  // Theme state
+  const [isDark, setIsDark] = useState<boolean>(true);
+  
+  // Stats and system information
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [statsHistory, setStatsHistory] = useState<Stats[]>([]);
+  
+  // Server and user data
+  const [selectedGuild, setSelectedGuild] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  
+  // UI state
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Available panels
+  const panels: PanelType[] = [
+    'Aperçu', 
+    'Utilisateurs', 
+    'Leaderboard XP', 
+    'Canaux Vocaux Auto', 
+    'Logs', 
+    'Configuration', 
+    'Bot'
+  ];
+
+  // Fetch initial data
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        setIsLoading(true);
+        // TODO: Add API calls to fetch initial data
+        // const response = await fetch(`${API_BASE}/api/me`);
+        // const data = await response.json();
+        // setUser(data.user);
+      } catch (err) {
+        setError('Failed to load initial data');
+        console.error('Error fetching initial data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
+
+  // Handle panel change
+  const handlePanelChange = (panel: PanelType) => {
+    setSelectedPanel(panel);
+  };
+
+  // Render the main application
+  return (
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <Router>
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+          {/* Sidebar */}
+          <Sidebar 
+            user={user} 
+            panels={panels}
+            selectedPanel={selectedPanel}
+            onPanelSelect={handlePanelChange}
+          />
+
+          {/* Main Content */}
+          <main className="flex-1 overflow-hidden">
+            {/* Top Navigation */}
+            <header className="bg-white dark:bg-gray-800 shadow-sm h-16 flex items-center px-6">
+              <h1 className="text-xl font-semibold">
+                {selectedGuild || 'Dashboard'}
+              </h1>
+              <div className="ml-auto flex items-center space-x-4">
+                {/* Add search, notifications, user menu, etc. */}
+              </div>
+            </header>
+
+            {/* Page Content */}
+            <div className="p-6 overflow-y-auto h-[calc(100vh-4rem)]">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Error: </strong>
+                  <span className="block sm:inline">{error}</span>
+                </div>
+              ) : (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={selectedPanel}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {renderPanelContent(selectedPanel, {
+                      stats,
+                      members,
+                      leaderboard,
+                      user,
+                      selectedGuild,
+                    })}
+                  </motion.div>
+                </AnimatePresence>
+              )}
+            </div>
+          </main>
+        </div>
+      </Router>
+      
+      {/* Toast Notifications */}
+      <Toaster />
+    </ThemeProvider>
+  );
+}
+
+// Helper function to render panel content
+function renderPanelContent(panel: PanelType, data: any) {
+  const { stats, members, leaderboard, user, selectedGuild } = data;
+  
+  switch (panel) {
+    case 'Aperçu':
+      return (
+        <div>
+          <h2 className="text-2xl font-bold mb-6">Aperçu du serveur</h2>
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {/* Stats Cards */}
+              <StatCard 
+                title="Membres" 
+                value={members.length}
+                icon="👥"
+                color="blue"
+              />
+              <StatCard 
+                title="En ligne" 
+                value={members.filter((m: any) => m.status === 'online').length}
+                icon="🟢"
+                color="green"
+              />
+              <StatCard 
+                title="Rôles" 
+                value={selectedGuild ? '24' : '0'} // Replace with actual data
+                icon="🎭"
+                color="purple"
+              />
+              <StatCard 
+                title="Salons" 
+                value={selectedGuild ? '15' : '0'} // Replace with actual data
+                icon="💬"
+                color="yellow"
+              />
+            </div>
+          )}
+          
+          {/* Activity Graph */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+            <h3 className="text-lg font-semibold mb-4">Activité récente</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={[
+                    { name: 'Lun', messages: 4000 },
+                    { name: 'Mar', messages: 3000 },
+                    { name: 'Mer', messages: 2000 },
+                    { name: 'Jeu', messages: 2780 },
+                    { name: 'Ven', messages: 1890 },
+                    { name: 'Sam', messages: 2390 },
+                    { name: 'Dim', messages: 3490 },
+                  ]}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorMessages" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="messages"
+                    stroke="#8884d8"
+                    fillOpacity={1}
+                    fill="url(#colorMessages)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      );
+      
+    case 'Utilisateurs':
+      return (
+        <div>
+          <h2 className="text-2xl font-bold mb-6">Gestion des utilisateurs</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            {/* User list table would go here */}
+            <div className="p-6 text-center text-gray-500">
+              Liste des utilisateurs à venir...
+            </div>
+          </div>
+        </div>
+      );
+      
+    // Add more cases for other panels...
+    
+    default:
+      return (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-2">{panel}</h2>
+            <p className="text-gray-500">Cette section est en cours de développement.</p>
+          </div>
+        </div>
+      );
+  }
+}
+
+// StatCard component
+function StatCard({ title, value, icon, color }: { 
+  title: string; 
+  value: string | number; 
+  icon: string;
+  color: string;
+}) {
+  const colorClasses = {
+    blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+    green: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+    purple: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+    yellow: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center">
+      <div className={`p-3 rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}>
+        <span className="text-2xl">{icon}</span>
+      </div>
+      <div className="ml-4">
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+        <p className="text-2xl font-semibold">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+export default App;

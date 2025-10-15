@@ -1,0 +1,144 @@
+{
+  "123456789": {
+    "volume": 50,
+    "logsEnabled": false,
+    "logChannelId": null
+  },
+  "123456789012345678": {
+    "name": "Serveur Exemple 1",
+    "prefix": "!",
+    "logChannelId": null,
+    "logsActive": true,
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "987654321098765432": {
+    "name": "Serveur Exemple 2",
+    "prefix": "?",
+    "logChannelId": null,
+    "logsActive": true,
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "639287882443522058": {
+    "name": "☪TüRk☪",
+    "prefix": "!",
+    "logChannelId": null,
+    "logsActive": true,
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "769906108793356308": {
+    "name": "MehmetSalihK",
+    "prefix": "!",
+    "logChannelId": null,
+    "logsActive": true,
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "780119216954802197": {
+    "name": "🗼 Paris'deki Bebeğ",
+    "prefix": "!",
+    "logChannelId": "1101236533010387177",
+    "logsActive": true,
+    "autoRole": {
+      "active": true,
+      "roles": []
+    },
+    "xpSystem": {
+      "xpLogs": {
+        "logChannelId": "1419610379553734726"
+      },
+      "voiceLogs": {
+        "logChannelId": "1419610379553734726",
+        "active": true
+      }
+    },
+    "logs": {
+      "active": true,
+      "logChannelId": "1419610379553734726"
+    },
+    "reactionRoles": {
+      "logs": true
+    }
+  },
+  "807934589380722729": {
+    "name": "TR",
+    "prefix": "!",
+    "logChannelId": null,
+    "logsActive": true,
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "861954547617890344": {
+    "name": "Emoji TR",
+    "prefix": "!",
+    "logChannelId": null,
+    "logsActive": true,
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "1417429903758069783": {
+    "name": "Serveur de \" DeRya/.❤",
+    "prefix": "!",
+    "logChannelId": null,
+    "logsActive": true,
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "1417775552139362307": {
+    "name": "Serveur de titof7046 TEST",
+    "prefix": "!",
+    "logChannelId": null,
+    "logsActive": true,
+    "xpSystem": {
+      "voiceLogs": {
+        "logChannelId": "1417784615455948820"
+      }
+    },
+    "autoRole": {
+      "active": false,
+      "roles": []
+    }
+  },
+  "1417941891172925483": {
+    "name": "Serveur de sketur60 Test",
+    "prefix": "!",
+    "logChannelId": "1417941892502650912",
+    "logsActive": true,
+    "xpSystem": {
+      "active": true,
+      "messageXP": 1,
+      "voiceXPPer5Min": 10,
+      "ignoreAfkChannelId": "1417941892502650912",
+      "logsActive": true,
+      "voiceLogs": {
+        "logChannelId": "1417967911011618927",
+        "active": true
+      }
+    },
+    "logs": {
+      "active": true,
+      "logChannelId": "1417941892502650912"
+    },
+    "autoRole": {
+      "active": false,
+      "roles": [],
+      "logChannelId": null
+    }
+  }
+}

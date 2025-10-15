@@ -14,6 +14,9 @@ function getModelForFile(fileName) {
   if (lower.includes('user') || lower.includes('profile')) return Models.Users;
   if (lower.includes('server') || lower.includes('config') || lower.includes('setting')) return Models.Servers;
   if (lower.includes('log')) return Models.Logs;
+  // Specific mappings
+  if (lower.includes('autorole')) return Models.AutoRoles;
+  if (lower.includes('rgbrole') || lower.includes('rgbconfig')) return Models.RgbRoles;
   return Models.Misc;
 }
 

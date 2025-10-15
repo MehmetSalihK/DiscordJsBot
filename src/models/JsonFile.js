@@ -14,6 +14,9 @@ export const Users = mongoose.model('users', genericSchema);
 export const Servers = mongoose.model('servers', genericSchema);
 export const Logs = mongoose.model('logs', genericSchema);
 export const Misc = mongoose.model('misc', genericSchema);
+// New dedicated collections
+export const AutoRoles = mongoose.model('autoroles', genericSchema);
+export const RgbRoles = mongoose.model('rgbroles', genericSchema);
 
 // Keep a default export for backward compatibility (unused by new sync)
 const fallbackSchema = new mongoose.Schema({

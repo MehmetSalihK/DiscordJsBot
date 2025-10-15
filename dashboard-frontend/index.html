@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.extra.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tableau de bord du bot</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      (function(){
+        const saved = Number((window.localStorage && localStorage.getItem('DASHBOARD_PORT')) || 0);
+        const ports = saved && saved >= 3001 && saved <= 3010 ? [saved].concat(Array.from({length:10}, (_,i)=>3001+i).filter(p=>p!==saved)) : Array.from({length:10}, (_,i)=>3001+i);
+        function tryPort(p){
+          return fetch(`http://localhost:${p}/api/health`, { method: 'GET' })
+            .then(r => r.ok ? r.json().catch(()=>({status:'ok'})) : Promise.reject(new Error('bad status '+r.status)))
+            .then(j => (j && j.status === 'ok') ? p : Promise.reject(new Error('not ok')));
+        }
+        (async function(){
+          for (let p of ports){
+            try {
+              const okPort = await tryPort(p);
+              window.__DASHBOARD_PORT__ = okPort;
+              try { localStorage.setItem('DASHBOARD_PORT', String(okPort)); } catch(e){}
+              return;
+            } catch(e) { /* try next */ }
+          }
+          window.__DASHBOARD_PORT__ = saved || 3001;
+        })();
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

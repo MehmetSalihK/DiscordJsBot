@@ -1,0 +1,292 @@
+Build a complete Discord bot dashboard from scratch, accessible at
+http://localhost:5173/dashboard
+.
+The dashboard must be fully redesigned (from zero) with a modern UI/UX and real-time configuration panels for all bot features.
+Everything should be in French, responsive, clean, and smooth — with subtle animations, tooltips, shadows, rounded cards, and a dark theme aesthetic.
+
+🌙 🖥️ Design Specifications (Dark UI / UX / UIX)
+
+General theme:
+
+Modern, flat dark interface
+
+Use shades of dark gray (#0f0f10 / #1c1c1f) as background
+
+Use accent color: #5865F2 (Discord blue)
+
+Smooth gradient accents and glowing button hovers
+
+Fonts: Inter / Poppins / Nunito Sans
+
+Rounded corners (border-radius: 1.2rem)
+
+Drop shadows for depth
+
+Animated transitions (Framer Motion or GSAP)
+
+Full responsiveness (desktop, tablet, mobile)
+
+⚙️ Global Layout
+
+🧭 Sidebar (vertical, collapsible):
+
+Dashboard (🏠)
+
+Serveurs (🧩)
+
+Utilisateurs (👥)
+
+Modules (⚙️)
+
+Logs (📜)
+
+Statistiques (📊)
+
+Paramètres (🔧)
+
+Profil (👑)
+
+Déconnexion (🚪)
+
+Highlight the active section with gradient border + glow
+
+🔝 Top Navbar:
+
+Search bar (🔍)
+
+User avatar + username
+
+Language selector (Français par défaut)
+
+Theme toggle (Sombre / Clair)
+
+Notification bell (🔔)
+
+⚙️ Main Content Area:
+
+Smooth fade-in transition on page change
+
+Use cards and grids for information grouping
+
+Each section loads dynamically without refreshing
+
+🧱 Sections du Dashboard
+🏠 Accueil
+
+Contenu :
+
+Statut du bot (🟢 En ligne / 🔴 Hors ligne)
+
+Uptime (depuis quand il est actif)
+
+Nombre de serveurs connectés
+
+Nombre total d’utilisateurs
+
+Version du bot + de Discord.js
+
+Dernière mise à jour
+
+Petite carte “système” avec CPU, RAM, Ping WebSocket
+
+Animation de particules en fond (subtile)
+
+⚙️ Configuration des serveurs
+
+Affiche :
+
+Choisir un serveur (dropdown avec icône Discord)
+
+Préfixe du serveur
+
+Salon de logs
+
+Auto Voice Channel
+
+AutoRole
+
+RGB Role
+
+XP System
+
+Anti-Link
+
+ReactionRole
+
+Suspension
+
+Social
+
+Chaque module a :
+
+Un switch ON/OFF
+
+Bouton “Configurer”
+
+Info tooltip
+
+Sauvegarde automatique MongoDB + JSON
+
+Petites animations sur les boutons (hover, toggle, success check)
+
+🎯 Système XP
+
+Sous-sections :
+
+📊 Classement global et vocal
+
+⚙️ Paramètres XP (min/max, taux, exclusions)
+
+🎖️ Réinitialisation XP
+
+🔄 Synchronisation MongoDB / JSON
+
+Cartes avec barres de progression animées
+
+Animation de montée de niveau (étoiles, glow)
+
+🧩 Modules
+
+Liste complète des modules activables :
+
+XP
+
+Anti-Link
+
+Auto-Voice Channels
+
+AutoRole
+
+RGB Role
+
+ReactionRole
+
+Suspension
+
+Social Links
+
+Chaque module :
+
+Toggle animé
+
+Statut (Activé/Désactivé)
+
+Bouton “Configurer” → ouvre un panel modal animé avec ses paramètres
+
+Tooltip d’aide
+
+📜 Logs
+
+Vue temps réel (mise à jour automatique via WebSocket)
+
+Filtres (modération, messages, vocal, XP, anti-link…)
+
+Design “console” avec effet terminal et couleur selon type (erreur, info, succès)
+
+Bouton “Effacer les logs”
+
+👥 Utilisateurs
+
+Liste de tous les membres (pseudo, ID, avatar)
+
+Statut (en ligne, inactif, hors ligne)
+
+Niveau + XP total
+
+Nombre de warns
+
+Bouton “Modifier profil XP”
+
+Fiche détaillée animée avec :
+
+XP graphique circulaire
+
+Historique vocal
+
+Rôles attribués
+
+Sanctions
+
+Réseaux sociaux configurés
+
+👑 Admin Panel (propriétaire uniquement)
+
+🔄 Redémarrer le bot
+
+📦 Sauvegarder / Charger config
+
+🔧 Recharger les commandes
+
+🧠 Mode maintenance
+
+💻 Console en temps réel (scroll auto + couleurs)
+
+Statistiques système (CPU, RAM, uptime)
+
+Sécurité : visible uniquement si l’utilisateur a OWNER_ID
+
+⚡ Technical Requirements
+
+Frontend: React.js + Vite (npm create vite@latest)
+
+Styling: Tailwind CSS + Framer Motion (for animations)
+
+Backend: Express.js or Next.js API routes
+
+Database: MongoDB (mongoose) + JSON backups in ./json/ & ./data/
+
+Auth: Discord OAuth2 (discord.js, passport-discord)
+
+Realtime updates: Socket.io (for XP, logs, config sync)
+
+File structure example:
+
+/client
+ ├─ /src
+ │  ├─ /components
+ │  ├─ /pages
+ │  │   ├─ Dashboard.jsx
+ │  │   ├─ Login.jsx
+ │  │   ├─ Modules.jsx
+ │  │   ├─ XP.jsx
+ │  │   └─ Logs.jsx
+ │  └─ /styles
+ └─ /public
+/server
+ ├─ index.js
+ ├─ routes/
+ └─ database/
+
+🧠 Animations et Effets
+
+Sidebar hover → expand animation
+
+Card hover → elevate + glow
+
+Switch toggle → smooth slide animation
+
+Modal open → fade + slide down
+
+Success toast → slide-in bottom right
+
+Page change → fade + scale transition
+
+🗝️ Login System
+
+First page = /login (OAuth2 Discord)
+
+Shows “Connecte-toi avec Discord pour accéder à ton tableau de bord”
+
+After login → redirects to /dashboard
+
+Store Discord token in secure session (cookie)
+
+Display user info (avatar + pseudo) in navbar
+
+✅ Result Expected
+
+You should deliver a fully interactive, real-time, dark-mode French Discord dashboard,
+accessible at http://localhost:5173/dashboard
+,
+that synchronizes with both MongoDB and local JSON configs,
+with a clean, modern, and animated UI, intuitive and beautiful to use.

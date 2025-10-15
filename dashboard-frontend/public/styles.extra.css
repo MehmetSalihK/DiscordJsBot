@@ -1,0 +1,158 @@
+/* =============================================
+   Extensions avancées du Design System (Dark Mode)
+   - Tokens additionnels, scrollbars, focus, variantes boutons/formulaires
+   - Tables sticky, skeleton, toasts, breadcrumbs, tabs, chips, icon buttons
+   ============================================= */
+
+:root {
+  --bg-3: #09101d;
+  --panel-3: #0a1526;
+  --ring-strong: rgba(56,189,248,0.55);
+}
+
+/* Sélection & Scrollbars */
+::selection { background: rgba(56,189,248,0.28); color: var(--text); }
+html { scrollbar-color: rgba(230,238,246,0.28) rgba(17,24,39,0.8); scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(17,24,39,0.75); }
+::-webkit-scrollbar-thumb { background: rgba(230,238,246,0.26); border-radius: 999px; border: 2px solid rgba(17,24,39,0.75); }
+::-webkit-scrollbar-thumb:hover { background: rgba(230,238,246,0.38); }
+
+/* Focus */
+:focus-visible { outline-color: var(--focus-color); }
+.btn:focus-visible, .input:focus-visible, .select:focus-visible, .textarea:focus-visible { box-shadow: 0 0 0 2px var(--ring-strong); }
+
+/* Boutons – variantes & tailles */
+.btn { transition: transform .15s ease, background .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.btn--primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); border: none; color: #00131f; box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset; }
+.btn--secondary { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+.btn--ghost { background: transparent; border: 1px solid var(--border-subtle); }
+.btn--danger { background: var(--danger); border: none; color: #fff; }
+.btn--success { background: var(--success); border: none; color: #00131f; }
+.btn--warn { background: var(--amber); border: none; color: #1a1400; }
+.btn--outline { background: transparent; border: 1px solid var(--border-strong); color: var(--text); }
+.btn--neutral { background: var(--panel); border: 1px solid var(--border-subtle); }
+.btn--sm { padding: 8px 12px; font-size: 14px; }
+.btn--lg { padding: 12px 18px; font-size: 16px; }
+.btn--icon { width: 36px; height: 36px; padding: 0; display: inline-grid; place-items: center; }
+.btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+/* Champs – états */
+.input, .select, .textarea { transition: border-color .15s ease, box-shadow .15s ease; }
+.input:disabled, .select:disabled, .textarea:disabled { opacity: .6; cursor: not-allowed; }
+.input[aria-invalid="true"], .select[aria-invalid="true"], .textarea[aria-invalid="true"], .input:invalid, .select:invalid, .textarea:invalid { border-color: var(--danger); box-shadow: 0 0 0 2px rgba(239,68,68,0.30); }
+.input:hover, .select:hover, .textarea:hover { border-color: rgba(230,238,246,0.22); }
+
+/* Cards – variantes */
+.card--outline { background: linear-gradient(180deg, rgba(17,24,39,0.86), rgba(17,24,39,0.82)); border: 1px solid var(--border-strong); }
+.card--elevated { box-shadow: 0 12px 36px rgba(2,6,23,0.75); }
+.card__actions { display: inline-flex; gap: 8px; }
+.card__header { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); }
+.card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(2,6,23,0.7); }
+
+/* Soft glow utility for dark mode accents */
+.glow-soft {
+  box-shadow: 0 0 0 1px rgba(120, 140, 255, 0.18),
+              0 6px 18px rgba(80, 100, 220, 0.18),
+              inset 0 0 24px rgba(50, 70, 180, 0.08);
+}
+
+/* Table – améliorations */
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 12px; border-bottom: 1px solid var(--border-subtle); }
+.table thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.table tr:hover { background: var(--glass); }
+.table tr:nth-child(odd) { background: rgba(255,255,255,0.02); }
+.table tr[aria-selected="true"] { background: rgba(56,189,248,0.10); }
+.pagination { display: flex; gap: 8px; align-items: center; }
+
+/* Console de logs */
+.log-console { background: var(--panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: var(--space-4); height: 260px; overflow: auto; }
+.log-entry { display: grid; grid-template-columns: 12px 1fr; gap: 12px; align-items: start; padding: 6px 0; }
+.log-entry__level { width: 6px; border-radius: 999px; }
+.log-entry--info .log-entry__level { background: var(--info); }
+.log-entry--warn .log-entry__level { background: var(--amber); }
+.log-entry--error .log-entry__level { background: var(--danger); }
+.log-entry--success .log-entry__level { background: var(--success); }
+.log-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+
+/* Skeleton shimmer */
+.skeleton { border-radius: 8px; background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.06)); background-size: 200% 100%; animation: skeleton-shimmer 1.2s ease-in-out infinite; }
+@keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Toast notifications */
+.toast { position: fixed; right: 16px; bottom: 16px; display: grid; grid-auto-flow: column; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--border-subtle); border-left: 4px solid var(--accent); color: var(--text); padding: 12px 16px; border-radius: 10px; box-shadow: var(--shadow); }
+.toast--success { border-left-color: var(--success); }
+.toast--warn { border-left-color: var(--amber); }
+.toast--error { border-left-color: var(--danger); }
+
+/* Breadcrumbs */
+.breadcrumb { display: flex; gap: 8px; align-items: center; color: var(--muted-text); }
+.breadcrumb a { color: var(--accent); }
+.breadcrumb__sep { opacity: .4; }
+
+/* Tabs */
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border-subtle); backdrop-filter: blur(4px); }
+.tab { padding: 8px 12px; color: var(--muted-text); border-bottom: 2px solid transparent; cursor: pointer; border-radius: 8px 8px 0 0; transition: color .15s ease, background .15s ease, border-color .15s ease; }
+.tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.tab--active { color: var(--text); border-bottom-color: var(--accent); background: linear-gradient(180deg, rgba(17,24,39,0.92), rgba(17,24,39,0.86)); }
+
+/* Motion-friendly transitions for common components */
+.card, .btn, .chip, .tab {
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+.btn:hover { transform: translateY(-1px); }
+
+/* Switch glow & checkbox accents for dark mode */
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.30);
+  border-radius: 4px;
+}
+input[type="checkbox"]:hover {
+  filter: brightness(1.08);
+}
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Icon buttons */
+.icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; border-radius: 8px; background: var(--muted); border: 1px solid var(--border-subtle); color: var(--text); cursor: pointer; }
+.icon-btn:hover { background: var(--glass); }
+
+/* Chips */
+.chip { transition: background .15s ease, border-color .15s ease; }
+.chip:hover { background: rgba(255,255,255,0.06); }
+.chip--active { background: var(--glass-strong); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(230,238,246,0.10); background: var(--glass); }
+.badge--success { border-color: rgba(16,185,129,0.30); color: var(--success); }
+.badge--danger { border-color: rgba(239,68,68,0.30); color: var(--danger); }
+
+/* Densité affichage – tables & log */
+.table th, .table td { padding: 10px; }
+.log-entry { padding: 4px 0; }
+
+/* Utilitaires complémentaires */
+.gap-8 { gap: var(--space-8); }
+.p-8 { padding: var(--space-8); }
+.mb-8 { margin-bottom: var(--space-8); }
+
+/* ======================
+   Overlays & Tilt Utils
+   ====================== */
+/* Overlay backdrop for loading and command palette */
+.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2,6,23,0.55); backdrop-filter: blur(6px); z-index: 900; }
+.overlay__inner { display: flex; align-items: center; gap: 12px; padding: 20px; background: var(--panel); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+.overlay__title { color: var(--text); font-weight: 600; }
+
+/* Spinner */
+.spinner { width: 28px; height: 28px; border-radius: 999px; border: 3px solid rgba(230,238,246,0.16); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 3D Tilt on cards */
+.card--tilt { transform-style: preserve-3d; transition: transform 220ms ease, box-shadow 220ms ease; }
+.card--tilt:hover { transform: perspective(800px) rotateX(2deg) rotateY(-2deg) translateY(-1px); box-shadow: 0 12px 32px rgba(2,6,23,0.75); }

@@ -6,6 +6,7 @@ import { config, assertConfig } from './config.js';
 import mongoose from 'mongoose';
 import { initializeSync } from './utils/syncAllJson.js';
 import { initializeSyncCategorized } from './utils/syncCategorizedJson.js';
+import { startDashboardServer } from './dashboard/server.js';
 import logger from './utils/logger.js';
 import { initializeErrorFiltering } from './utils/errorFilter.js';
 import { displayStartupHeader, displayStartupFooter, displayDebugInfo } from './utils/startup.js';
@@ -91,6 +92,9 @@ async function main() {
 
   // Initialiser la synchronisation JSON ⇄ MongoDB (catégorisée)
   await initializeSyncCategorized();
+
+  // Démarrer le serveur dashboard en parallèle, avec le client Discord
+  startDashboardServer(client);
 
   // Les interactions sont gérées par src/events/interactioncreate.js
 
